@@ -3,8 +3,12 @@ import {
   type ResourceMetadata,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { getEnv } from "@/config/env";
 import { errorContents } from "@/resources/_helpers";
-import { graphFetch, graphPaginate } from "@/services/meta-graph-api";
+import { cached, tokenKey } from "@/services/cache";
+import { graphPaginate, validateToken } from "@/services/meta-graph-api";
+
+const ACCOUNTS_TTL_MS = 5 * 60 * 1000; // 5 min — accounts list rarely changes
 
 interface AdAccount {
   id: string;
@@ -14,11 +18,6 @@ interface AdAccount {
   currency?: string;
   timezone_name?: string;
   business?: { id: string; name?: string };
-}
-
-interface MeResponse {
-  id: string;
-  name?: string;
 }
 
 const ACCOUNT_FIELDS = [
@@ -44,9 +43,9 @@ export function registerAccountResources(server: McpServer): void {
     },
     async (uri) => {
       try {
-        const me = await graphFetch<MeResponse>("me", {
-          params: { fields: "id,name" },
-        });
+        // validateToken() caches the /me response per-token for the process
+        // lifetime. Subsequent reads of meta-ads://me are free.
+        const me = await validateToken();
         return {
           contents: [
             {
@@ -72,20 +71,34 @@ export function registerAccountResources(server: McpServer): void {
 
   const readAccounts = async (uri: URL) => {
     try {
-      const params: Record<string, string | number | undefined> = {
-        fields: uri.searchParams.get("fields") ?? ACCOUNT_FIELDS,
-      };
+      const fields = uri.searchParams.get("fields") ?? ACCOUNT_FIELDS;
       const cursor = uri.searchParams.get("cursor");
-      if (cursor) params.cursor = cursor;
       const limit = uri.searchParams.get("limit");
-      if (limit) {
-        const parsedLimit = Number.parseInt(limit, 10);
-        if (!Number.isFinite(parsedLimit)) {
-          throw new Error(`Invalid limit: ${limit}`);
-        }
-        params.limit = parsedLimit;
+      const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
+      if (limit && !Number.isFinite(parsedLimit)) {
+        throw new Error(`Invalid limit: ${limit}`);
       }
-      const body = await graphPaginate<AdAccount>("me/adaccounts", { params });
+
+      // Cache the first page of the default field set per-token. Paginated /
+      // custom-fields requests skip the cache (they're rare and the cache key
+      // surface would explode). Auth errors elsewhere will invalidate this
+      // (see graphFetch 401/403 handler).
+      const isDefaultFirstPage =
+        !cursor && parsedLimit === undefined && fields === ACCOUNT_FIELDS;
+
+      const params: Record<string, string | number | undefined> = { fields };
+      if (cursor) params.cursor = cursor;
+      if (parsedLimit !== undefined) params.limit = parsedLimit;
+
+      const fetchAccounts = () => graphPaginate<AdAccount>("me/adaccounts", { params });
+
+      const body = isDefaultFirstPage
+        ? await cached(
+            tokenKey(getEnv().META_ADS_ACCESS_TOKEN, "me/adaccounts"),
+            ACCOUNTS_TTL_MS,
+            fetchAccounts,
+          )
+        : await fetchAccounts();
       return {
         contents: [
           {

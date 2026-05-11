@@ -1,5 +1,6 @@
 import { createHmac } from "node:crypto";
 import { getEnv } from "@/config/env";
+import { cacheGet, cacheSet, tokenKey } from "@/services/cache";
 
 /**
  * Build the Authorization header for Meta Graph API requests.
@@ -20,12 +21,20 @@ export function getAuthHeaders(): Record<string, string> {
  * (HMAC-SHA256 of the access token, keyed with the app secret, hex-encoded).
  * Meta uses this to verify the request originated from a client that knows the secret.
  *
+ * Memoized for the process lifetime, keyed by sha256(token). Token rotation
+ * invalidates automatically because the key changes.
+ *
  * Reference: https://developers.facebook.com/docs/graph-api/security
  */
 export function getAppSecretProof(): string | null {
   const env = getEnv();
   if (!env.META_ADS_APP_SECRET) return null;
-  return createHmac("sha256", env.META_ADS_APP_SECRET)
+  const key = tokenKey(env.META_ADS_ACCESS_TOKEN, "appsecret_proof");
+  const cached = cacheGet<string>(key);
+  if (cached !== undefined) return cached;
+  const proof = createHmac("sha256", env.META_ADS_APP_SECRET)
     .update(env.META_ADS_ACCESS_TOKEN)
     .digest("hex");
+  cacheSet(key, proof, Number.POSITIVE_INFINITY);
+  return proof;
 }

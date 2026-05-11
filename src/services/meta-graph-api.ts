@@ -1,5 +1,12 @@
 import { getAppSecretProof, getAuthHeaders } from "@/auth/index";
 import { getEnv } from "@/config/env";
+import {
+  cacheGet,
+  cacheInvalidatePrefix,
+  cacheSet,
+  tokenKey,
+  tokenPrefix,
+} from "@/services/cache";
 import { MetaApiError, parseGraphError } from "@/utils/errors";
 import { log } from "@/utils/logger";
 
@@ -178,6 +185,20 @@ export async function graphFetch<T>(
       const err = parseGraphError(res.status, bodyJson);
       lastError = err;
 
+      // Auth errors invalidate every cache entry derived from this token.
+      // 401 = invalid token; 403 = token has lost permission for this resource.
+      // Either way, downstream consumers should not trust cached identity /
+      // accounts / etc. — they may have changed under us.
+      if (res.status === 401 || res.status === 403) {
+        const env = getEnv();
+        const removed = cacheInvalidatePrefix(tokenPrefix(env.META_ADS_ACCESS_TOKEN));
+        if (removed > 0) {
+          log.warn(
+            `Meta API ${res.status} — invalidated ${removed} cached entries for this token`,
+          );
+        }
+      }
+
       if (attempt < retries && shouldRetry(res.status, err)) {
         const delay = 1000 * 2 ** attempt + Math.floor(Math.random() * 500);
         log.warn(
@@ -248,11 +269,21 @@ export async function graphPaginate<T>(
 }
 
 /**
- * Probe `GET /me` to validate the access token. Called at startup if
- * META_ADS_VALIDATE_AT_STARTUP=true.
+ * Probe `GET /me` to validate the access token. Used by the startup preflight
+ * and by any caller that needs the System User identity.
+ *
+ * Cached for the process lifetime keyed by sha256(token). A 401/403 from any
+ * subsequent request invalidates this (via cacheInvalidatePrefix in the auth-
+ * error handler above), so the next call re-probes.
  */
 export async function validateToken(): Promise<{ id: string; name?: string }> {
-  return graphFetch<{ id: string; name?: string }>("me", {
+  const env = getEnv();
+  const key = tokenKey(env.META_ADS_ACCESS_TOKEN, "me");
+  const hit = cacheGet<{ id: string; name?: string }>(key);
+  if (hit !== undefined) return hit;
+  const me = await graphFetch<{ id: string; name?: string }>("me", {
     params: { fields: "id,name" },
   });
+  cacheSet(key, me, Number.POSITIVE_INFINITY);
+  return me;
 }
