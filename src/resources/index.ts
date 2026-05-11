@@ -6,6 +6,7 @@ import { registerAudienceResources } from "@/resources/audiences";
 import { registerCampaignResources } from "@/resources/campaigns";
 import { registerCreativeResources } from "@/resources/creatives";
 import { registerInsightsResources } from "@/resources/insights";
+import { registerPixelResources } from "@/resources/pixels";
 
 /**
  * Resource registration barrel.
@@ -31,4 +32,5 @@ export function registerAllResources(server: McpServer): void {
   registerCreativeResources(server);
   registerAudienceResources(server);
   registerInsightsResources(server);
+  registerPixelResources(server);
 }

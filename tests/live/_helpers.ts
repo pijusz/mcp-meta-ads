@@ -65,6 +65,54 @@ export function liveBusinessAttachedSkipReason(): string {
   return "(enabled)";
 }
 
+/**
+ * Gate for CAPI live tests. Requires:
+ *   - META_ADS_TEST_PIXEL_ID — use a dedicated test pixel; event writes are permanent
+ *   - META_ADS_TEST_EVENT_CODE — code from Events Manager → Test Events so events are visible there
+ *   - META_ADS_ALLOW_CAPI_EVENT_WRITES=true — explicit acknowledgement that these tests POST events
+ *
+ * test_event_code is a debugging route, not a rollback/delete mechanism. Keep
+ * these tests away from production pixels unless those synthetic events are acceptable.
+ */
+export function liveCapiTestsEnabled(): boolean {
+  return (
+    liveTestsEnabled() &&
+    !!process.env.META_ADS_TEST_PIXEL_ID &&
+    !!process.env.META_ADS_TEST_EVENT_CODE &&
+    process.env.META_ADS_ALLOW_CAPI_EVENT_WRITES === "true"
+  );
+}
+
+export function liveCapiSkipReason(): string {
+  if (!liveTestsEnabled()) return liveSkipReason();
+  if (!process.env.META_ADS_TEST_PIXEL_ID) {
+    return "META_ADS_TEST_PIXEL_ID not set (CAPI tests need a dedicated test pixel ID)";
+  }
+  if (!process.env.META_ADS_TEST_EVENT_CODE) {
+    return "META_ADS_TEST_EVENT_CODE not set (grab one from Events Manager → Test Events)";
+  }
+  if (process.env.META_ADS_ALLOW_CAPI_EVENT_WRITES !== "true") {
+    return "META_ADS_ALLOW_CAPI_EVENT_WRITES != true (CAPI tests POST permanent events)";
+  }
+  return "(enabled)";
+}
+
+export function getTestPixelId(): string {
+  const raw = process.env.META_ADS_TEST_PIXEL_ID;
+  if (!raw) throw new Error("META_ADS_TEST_PIXEL_ID is required for CAPI tests.");
+  return raw;
+}
+
+export function getTestEventCode(): string {
+  const raw = process.env.META_ADS_TEST_EVENT_CODE;
+  if (!raw) {
+    throw new Error(
+      "META_ADS_TEST_EVENT_CODE is required for CAPI tests. Find it in Events Manager → Test Events tab.",
+    );
+  }
+  return raw;
+}
+
 export function getTestAccountId(): string {
   const raw = process.env.META_ADS_TEST_ACCOUNT_ID;
   if (!raw) {

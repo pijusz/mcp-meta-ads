@@ -43,7 +43,7 @@ export function normalizeDob(value: string): string {
   // Expect "YYYY-MM-DD" or similar; output "YYYYMMDD".
   const digits = value.replace(/\D/g, "");
   if (digits.length !== 8) {
-    throw new Error(`Invalid DOB ${value} — expected YYYY-MM-DD`);
+    throw new Error("Invalid DOB — expected YYYY-MM-DD");
   }
   return digits;
 }
@@ -85,11 +85,56 @@ export function normalizeGender(value: string): string {
   const v = value.trim().toLowerCase();
   if (v.startsWith("m")) return "m";
   if (v.startsWith("f")) return "f";
-  throw new Error(`Invalid gender ${value} — expected m/f`);
+  throw new Error("Invalid gender — expected m/f");
 }
 
 export function normalizeMadid(value: string): string {
   return value.trim().toLowerCase();
+}
+
+/**
+ * F5FIRST / F5LAST — first 5 chars of first/last name (CAPI-specific).
+ * Same normalization as FN/LN but truncated.
+ */
+export function normalizeF5(value: string): string {
+  return normalizeName(value).slice(0, 5);
+}
+
+/**
+ * FI — first initial (CAPI). Single char, lowercase, alphabetic only.
+ */
+export function normalizeFi(value: string): string {
+  return normalizeName(value).slice(0, 1);
+}
+
+/**
+ * DOBY / DOBM / DOBD — year (4-digit), month (2-digit zero-padded), day (2-digit
+ * zero-padded). CAPI-specific. Accept either pre-formatted ("07") or numeric ("7").
+ */
+export function normalizeDoby(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length !== 4) {
+    throw new Error("Invalid DOBY — expected 4-digit year");
+  }
+  return digits;
+}
+
+export function normalizeDobm(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  const month = Number.parseInt(digits, 10);
+  if (!digits || digits.length > 2 || month < 1 || month > 12) {
+    throw new Error("Invalid DOBM — expected month 1-12");
+  }
+  return digits.padStart(2, "0");
+}
+
+export function normalizeDobd(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  const day = Number.parseInt(digits, 10);
+  if (!digits || digits.length > 2 || day < 1 || day > 31) {
+    throw new Error("Invalid DOBD — expected day 1-31");
+  }
+  return digits.padStart(2, "0");
 }
 
 type Normalizer = (v: string) => string;
@@ -106,6 +151,13 @@ const NORMALIZERS: Record<string, Normalizer> = {
   COUNTRY: normalizeCountry,
   GEN: normalizeGender,
   MADID: normalizeMadid,
+  // CAPI-specific tokens
+  F5FIRST: normalizeF5,
+  F5LAST: normalizeF5,
+  FI: normalizeFi,
+  DOBY: normalizeDoby,
+  DOBM: normalizeDobm,
+  DOBD: normalizeDobd,
 };
 
 export interface HashContext {

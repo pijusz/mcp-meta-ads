@@ -3,6 +3,7 @@ import { registerAdTools } from "@/tools/ads";
 import { registerAdSetTools } from "@/tools/adsets";
 import { registerAudienceTools } from "@/tools/audiences";
 import { registerCampaignTools } from "@/tools/campaigns";
+import { registerCapiTools } from "@/tools/capi";
 import { registerCreativeTools } from "@/tools/creatives";
 import { registerInsightsTools } from "@/tools/insights";
 import { registerRawTools } from "@/tools/raw";
@@ -22,7 +23,7 @@ export function registerAllTools(server: McpServer): void {
   registerCreativeTools(server);
   registerAudienceTools(server);
   registerTargetingTools(server);
-  // TODO(v0.4): registerCapiTools(server);
+  registerCapiTools(server);
   // TODO(v0.5): registerCatalogTools(server);
   // TODO(v0.6): registerEngagementTools(server);
 }
