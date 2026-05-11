@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pijusz/mcp-meta-ads",
+  "description": "Meta (Facebook) Ads MCP server — manage campaigns, ad sets, ads, creatives, audiences & insights via natural language",
+  "repository": {
+    "url": "https://github.com/pijusz/mcp-meta-ads",
+    "source": "github"
+  },
+  "version": "0.0.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "mcp-meta-ads",
+      "version": "0.0.1",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
