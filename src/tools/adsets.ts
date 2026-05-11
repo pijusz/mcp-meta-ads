@@ -3,15 +3,16 @@ import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
+import { registerStatusTool } from "@/utils/mutations";
 import { writeTool } from "@/utils/register-tool";
 import { fail, ok, stripUndefined } from "@/utils/tool-response";
 
 /**
- * Ad set mutation tools. Part of v0.2 — same pattern as campaigns.ts.
+ * Ad set mutation tools. Same pattern as campaigns.ts.
  *
- * Targeting is passed through as raw JSON. Builder helpers (search_interests,
- * search_geo_locations, build_targeting) are decision #12 in docs/SPEC.md
- * and land in v0.3.
+ * Targeting is passed through as raw JSON. Builder helpers
+ * (`search_interests`, `search_geo_locations`, `build_targeting`) live in
+ * `src/tools/targeting.ts` — call those to assemble the targeting object.
  */
 
 const OPTIMIZATION_GOAL = z.enum([
@@ -85,7 +86,7 @@ Notes:
 - Status defaults to PAUSED so the ad set won't start spending until you explicitly resume.
 - 'optimization_goal' must match the campaign's objective (e.g. OUTCOME_TRAFFIC campaign → LINK_CLICKS or LANDING_PAGE_VIEWS).
 - 'billing_event' is what Meta charges you for: IMPRESSIONS is the safest default.
-- 'targeting' is Meta's raw JSON shape — pass at minimum { geo_locations: { countries: ['US'] } }. Builder helpers ship in v0.3.
+- 'targeting' is Meta's raw JSON shape — pass at minimum { geo_locations: { countries: ['US'] } }. Use the 'build_targeting' tool to assemble it from human concepts.
 - Budget must be either at campaign level (CBO) or set here (one of daily_budget / lifetime_budget). When set here, also pass start_time and (for lifetime_budget) end_time.
 - bid_amount is REQUIRED for LOWEST_COST_WITH_BID_CAP and COST_CAP strategies.`,
     {
@@ -245,20 +246,26 @@ If you change daily_budget or lifetime_budget on a non-CBO ad set, Meta may requ
     },
   );
 
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "pause_adset",
     description: "⚠️ WRITE OPERATION — Pause an ad set (status=PAUSED).",
     targetStatus: "PAUSED",
+    inputSchema: { adset_id: z.string() },
+    idField: "adset_id",
   });
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "resume_adset",
     description: "⚠️ WRITE OPERATION — Resume an ad set (status=ACTIVE).",
     targetStatus: "ACTIVE",
+    inputSchema: { adset_id: z.string() },
+    idField: "adset_id",
   });
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "archive_adset",
     description: "⚠️ WRITE OPERATION — Archive an ad set (status=ARCHIVED).",
     targetStatus: "ARCHIVED",
+    inputSchema: { adset_id: z.string() },
+    idField: "adset_id",
   });
 
   writeTool(
@@ -307,33 +314,6 @@ If you change daily_budget or lifetime_budget on a non-CBO ad set, Meta may requ
           source_adset_id: args.adset_id,
           copied_adset_id: res.copied_adset_id,
           ad_object_ids: res.ad_object_ids,
-        });
-      } catch (err) {
-        return fail(err);
-      }
-    },
-  );
-}
-
-function registerStatusSetter(
-  server: McpServer,
-  cfg: { name: string; description: string; targetStatus: string },
-): void {
-  writeTool(
-    server,
-    cfg.name,
-    cfg.description,
-    { adset_id: z.string() },
-    async ({ adset_id }) => {
-      try {
-        const res = await graphFetch<{ success: boolean }>(adset_id, {
-          method: "POST",
-          body: { status: cfg.targetStatus },
-        });
-        return ok({
-          adset_id,
-          status: cfg.targetStatus,
-          success: res.success ?? true,
         });
       } catch (err) {
         return fail(err);

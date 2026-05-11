@@ -3,6 +3,7 @@ import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { graphFetch, graphPaginate } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
+import { paginationParams } from "@/utils/pagination";
 
 export function errorContents(uri: string, err: unknown) {
   const payload =
@@ -79,17 +80,8 @@ function registerListResourceVariant(
         const actId = normalizeActId(extractVar(vars, "accountId"));
         const params: Record<string, string | number | undefined> = {
           fields: uri.searchParams.get("fields") ?? cfg.defaultFields,
+          ...paginationParams(uri.searchParams),
         };
-        const cursor = uri.searchParams.get("cursor");
-        if (cursor) params.cursor = cursor;
-        const limit = uri.searchParams.get("limit");
-        if (limit) {
-          const parsedLimit = Number.parseInt(limit, 10);
-          if (!Number.isFinite(parsedLimit)) {
-            throw new Error(`Invalid limit: ${limit}`);
-          }
-          params.limit = parsedLimit;
-        }
         const result = await graphPaginate(`${actId}/${cfg.edge}`, { params });
         return {
           contents: [

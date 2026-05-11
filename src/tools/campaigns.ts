@@ -3,6 +3,7 @@ import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
+import { registerStatusTool } from "@/utils/mutations";
 import { writeTool } from "@/utils/register-tool";
 import { fail, ok, stripUndefined } from "@/utils/tool-response";
 
@@ -247,25 +248,31 @@ Partial update — only include fields you want to change. Daily-budget changes 
     },
   );
 
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "pause_campaign",
     description:
       "⚠️ WRITE OPERATION — Pause a campaign (status=PAUSED). Halts delivery immediately.",
     targetStatus: "PAUSED",
+    inputSchema: { campaign_id: z.string() },
+    idField: "campaign_id",
   });
 
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "resume_campaign",
     description:
       "⚠️ WRITE OPERATION — Resume a paused campaign (status=ACTIVE). Begins delivery immediately if other settings allow.",
     targetStatus: "ACTIVE",
+    inputSchema: { campaign_id: z.string() },
+    idField: "campaign_id",
   });
 
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "archive_campaign",
     description:
       "⚠️ WRITE OPERATION — Archive a campaign (status=ARCHIVED). Cannot be edited further but stays visible for reporting.",
     targetStatus: "ARCHIVED",
+    inputSchema: { campaign_id: z.string() },
+    idField: "campaign_id",
   });
 
   writeTool(
@@ -333,35 +340,6 @@ By default, only the campaign object is copied; pass deep_copy=true to also copy
           source_campaign_id: args.campaign_id,
           copied_campaign_id: res.copied_campaign_id,
           ad_object_ids: res.ad_object_ids,
-        });
-      } catch (err) {
-        return fail(err);
-      }
-    },
-  );
-}
-
-function registerStatusSetter(
-  server: McpServer,
-  cfg: { name: string; description: string; targetStatus: string },
-): void {
-  writeTool(
-    server,
-    cfg.name,
-    cfg.description,
-    {
-      campaign_id: z.string().describe("Campaign ID."),
-    },
-    async ({ campaign_id }) => {
-      try {
-        const res = await graphFetch<CampaignUpdateResponse>(campaign_id, {
-          method: "POST",
-          body: { status: cfg.targetStatus },
-        });
-        return ok({
-          campaign_id,
-          status: cfg.targetStatus,
-          success: res.success ?? true,
         });
       } catch (err) {
         return fail(err);

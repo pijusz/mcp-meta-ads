@@ -130,12 +130,63 @@ function shouldRetry(status: number, err?: MetaApiError): boolean {
 }
 
 /**
+ * Parse a successful Graph response. Most endpoints return JSON; some (video
+ * upload status, raw text health probes) return plain text. The content-type
+ * header is the only reliable signal, since `res.json()` would throw on text.
+ */
+async function parseSuccessBody<T>(res: Response): Promise<T> {
+  const ct = res.headers.get("content-type") ?? "";
+  if (ct.includes("application/json")) {
+    return (await res.json()) as T;
+  }
+  return (await res.text()) as unknown as T;
+}
+
+/**
+ * Read the error body off a non-OK Response. JSON first, falling back to text
+ * if Meta returned something weird (rare; mostly happens on 5xx from infra in
+ * front of Meta — e.g. CDN errors). Returns whatever it can; the caller is
+ * responsible for translating to MetaApiError via parseGraphError.
+ */
+async function readErrorBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return await res.text().catch(() => null);
+  }
+}
+
+/**
+ * Auth errors mean cached identity / accounts / etc. derived from this token
+ * are no longer trustworthy. Wipe them so the next call re-validates.
+ * 401 = token invalid; 403 = token lost permission for this specific resource
+ * (the rest of the token's scope may still be fine, but stale cache is worse
+ * than a re-fetch).
+ */
+function invalidateTokenCachesOnAuthError(status: number): void {
+  if (status !== 401 && status !== 403) return;
+  const env = getEnv();
+  const removed = cacheInvalidatePrefix(tokenPrefix(env.META_ADS_ACCESS_TOKEN));
+  if (removed > 0) {
+    log.warn(`Meta API ${status} — invalidated ${removed} cached entries for this token`);
+  }
+}
+
+/**
+ * Exponential backoff with jitter: 1s * 2^attempt + [0..500)ms.
+ */
+function retryDelayMs(attempt: number): number {
+  return 1000 * 2 ** attempt + Math.floor(Math.random() * 500);
+}
+
+/**
  * Central Graph API fetch with retries + rate-limit awareness.
  *
  * - Adds Authorization + appsecret_proof.
  * - Parses error envelope into a typed MetaApiError on failure.
- * - Retries on 429 / 5xx / code 1,2,4,17,32,613 with exponential backoff + jitter.
+ * - Retries on 429 / 5xx / code 1,2,4,17,32,613,80000-80004 with exp backoff + jitter.
  * - Reads X-App-Usage / X-Ad-Account-Usage / X-Business-Use-Case-Usage; backs off proactively.
+ * - Invalidates token-scoped caches on 401/403.
  */
 export async function graphFetch<T>(
   path: string,
@@ -146,13 +197,9 @@ export async function graphFetch<T>(
   }
 
   const { method = "GET", params, body, timeout = 30_000, retries = 3 } = opts;
-
   const url = buildUrl(path, params);
-  const headers = getAuthHeaders();
-  const init: RequestInit = { method, headers };
-  if (body !== undefined) {
-    init.body = JSON.stringify(body);
-  }
+  const init: RequestInit = { method, headers: getAuthHeaders() };
+  if (body !== undefined) init.body = JSON.stringify(body);
 
   let lastError: MetaApiError | undefined;
 
@@ -163,44 +210,18 @@ export async function graphFetch<T>(
     try {
       const res = await fetch(url, { ...init, signal: controller.signal });
       clearTimeout(timer);
-
       await maybeProactiveBackoff(res.headers);
 
       if (res.ok) {
-        // Some Graph endpoints respond with text (e.g. video upload status).
-        const ct = res.headers.get("content-type") ?? "";
-        if (ct.includes("application/json")) {
-          return (await res.json()) as T;
-        }
-        return (await res.text()) as unknown as T;
+        return await parseSuccessBody<T>(res);
       }
 
-      let bodyJson: unknown = null;
-      try {
-        bodyJson = await res.json();
-      } catch {
-        bodyJson = await res.text().catch(() => null);
-      }
-
-      const err = parseGraphError(res.status, bodyJson);
+      const err = parseGraphError(res.status, await readErrorBody(res));
       lastError = err;
-
-      // Auth errors invalidate every cache entry derived from this token.
-      // 401 = invalid token; 403 = token has lost permission for this resource.
-      // Either way, downstream consumers should not trust cached identity /
-      // accounts / etc. — they may have changed under us.
-      if (res.status === 401 || res.status === 403) {
-        const env = getEnv();
-        const removed = cacheInvalidatePrefix(tokenPrefix(env.META_ADS_ACCESS_TOKEN));
-        if (removed > 0) {
-          log.warn(
-            `Meta API ${res.status} — invalidated ${removed} cached entries for this token`,
-          );
-        }
-      }
+      invalidateTokenCachesOnAuthError(res.status);
 
       if (attempt < retries && shouldRetry(res.status, err)) {
-        const delay = 1000 * 2 ** attempt + Math.floor(Math.random() * 500);
+        const delay = retryDelayMs(attempt);
         log.warn(
           `Meta API ${res.status} code=${err.code ?? "-"} subcode=${err.subcode ?? "-"} — retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`,
         );
@@ -213,8 +234,7 @@ export async function graphFetch<T>(
       clearTimeout(timer);
       if (err instanceof MetaApiError) {
         if (attempt < retries && shouldRetry(err.status ?? 0, err)) {
-          const delay = 1000 * 2 ** attempt + Math.floor(Math.random() * 500);
-          await sleep(delay);
+          await sleep(retryDelayMs(attempt));
           continue;
         }
         throw err;
@@ -222,7 +242,7 @@ export async function graphFetch<T>(
       // Network / abort / unknown error.
       const reason = (err as Error).message ?? String(err);
       if (attempt < retries) {
-        const delay = 1000 * 2 ** attempt + Math.floor(Math.random() * 500);
+        const delay = retryDelayMs(attempt);
         log.warn(
           `Fetch error — retrying in ${delay}ms (attempt ${attempt + 1}/${retries}): ${reason}`,
         );

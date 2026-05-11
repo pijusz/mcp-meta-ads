@@ -79,27 +79,30 @@ function applyBreakdownFixes(query: InsightsQuery): InsightsQuery {
 }
 
 /**
- * Strip `omni_*` duplicates from each row's `actions` array.
- * Meta returns both the platform-specific entry (`onsite_conversion.purchase`)
- * and the `omni_purchase` aggregate; for ads management the platform-specific
- * one is what the user cares about.
+ * True when an action entry should be filtered out in compact mode — Meta
+ * returns both the platform-specific entry (`onsite_conversion.purchase`) and
+ * the `omni_purchase` aggregate; for ads management the platform-specific
+ * one is what the user cares about. `offsite_*` is the same story for older
+ * conversion paths.
+ */
+function isDuplicateOmniAction(action: unknown): boolean {
+  if (typeof action !== "object" || action === null) return false;
+  if (!("action_type" in action)) return false;
+  const type = (action as { action_type: unknown }).action_type;
+  if (typeof type !== "string") return false;
+  return type.startsWith("omni_") || type.startsWith("offsite_");
+}
+
+/**
+ * Strip `omni_*` / `offsite_*` duplicates from each row's `actions` array
+ * (and any sibling `*_actions` arrays Meta sometimes emits).
  */
 function compactRows(rows: InsightsRow[]): InsightsRow[] {
   return rows.map((row) => {
     const out: InsightsRow = {};
     for (const [k, v] of Object.entries(row)) {
       if (Array.isArray(v) && (k === "actions" || k.endsWith("_actions"))) {
-        out[k] = v.filter(
-          (a: unknown) =>
-            !(
-              typeof a === "object" &&
-              a !== null &&
-              "action_type" in a &&
-              typeof (a as { action_type: unknown }).action_type === "string" &&
-              ((a as { action_type: string }).action_type.startsWith("omni_") ||
-                (a as { action_type: string }).action_type.startsWith("offsite_"))
-            ),
-        );
+        out[k] = v.filter((a) => !isDuplicateOmniAction(a));
       } else {
         out[k] = v;
       }

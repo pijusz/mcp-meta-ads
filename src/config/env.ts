@@ -20,6 +20,43 @@ export type Env = z.infer<typeof envSchema>;
 let _env: Env | null = null;
 let _dotenvLoaded = false;
 
+/**
+ * Parse a single `.env` line into a `{ key, value }` pair, or `null` for lines
+ * that should be ignored (empty / comment / malformed). Exported for testing.
+ *
+ * Rules:
+ *   - Lines starting with `#` (after trim) are comments.
+ *   - Optional leading `export ` is stripped.
+ *   - Key/value split on the FIRST `=`.
+ *   - Values may be quoted with `"` or `'` — quotes are stripped if balanced.
+ *   - Unquoted values have trailing `  # comment` stripped.
+ *   - `\n` literal sequences in the value become real newlines.
+ */
+export function parseEnvLine(rawLine: string): { key: string; value: string } | null {
+  const line = rawLine.trim();
+  if (!line || line.startsWith("#")) return null;
+
+  const withoutExport = line.startsWith("export ")
+    ? line.slice("export ".length).trim()
+    : line;
+  const eq = withoutExport.indexOf("=");
+  if (eq <= 0) return null;
+
+  const key = withoutExport.slice(0, eq).trim();
+  if (!key) return null;
+
+  let value = withoutExport.slice(eq + 1).trim();
+  const hasQuotes =
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"));
+  if (hasQuotes && value.length >= 2) {
+    value = value.slice(1, -1);
+  } else {
+    value = value.replace(/\s+#.*$/, "");
+  }
+  return { key, value: value.replace(/\\n/g, "\n") };
+}
+
 function loadDotEnvIfPresent(): void {
   if (_dotenvLoaded) return;
   _dotenvLoaded = true;
@@ -33,30 +70,13 @@ function loadDotEnvIfPresent(): void {
   } catch {
     return;
   }
+
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-
-    const withoutExport = line.startsWith("export ")
-      ? line.slice("export ".length).trim()
-      : line;
-    const eq = withoutExport.indexOf("=");
-    if (eq <= 0) continue;
-
-    const key = withoutExport.slice(0, eq).trim();
-    if (!key) continue;
-    if (process.env[key] !== undefined) continue;
-
-    let value = withoutExport.slice(eq + 1).trim();
-    const hasQuotes =
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"));
-    if (hasQuotes && value.length >= 2) {
-      value = value.slice(1, -1);
-    } else {
-      value = value.replace(/\s+#.*$/, "");
-    }
-    process.env[key] = value.replace(/\\n/g, "\n");
+    const parsed = parseEnvLine(rawLine);
+    if (!parsed) continue;
+    // Don't override env vars the process already has set.
+    if (process.env[parsed.key] !== undefined) continue;
+    process.env[parsed.key] = parsed.value;
   }
 }
 

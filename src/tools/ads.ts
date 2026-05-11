@@ -3,6 +3,7 @@ import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
+import { registerStatusTool } from "@/utils/mutations";
 import { writeTool } from "@/utils/register-tool";
 import { fail, ok, stripUndefined } from "@/utils/tool-response";
 
@@ -108,20 +109,26 @@ Notes:
     },
   );
 
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "pause_ad",
     description: "⚠️ WRITE OPERATION — Pause an ad (status=PAUSED).",
     targetStatus: "PAUSED",
+    inputSchema: { ad_id: z.string() },
+    idField: "ad_id",
   });
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "resume_ad",
     description: "⚠️ WRITE OPERATION — Resume an ad (status=ACTIVE).",
     targetStatus: "ACTIVE",
+    inputSchema: { ad_id: z.string() },
+    idField: "ad_id",
   });
-  registerStatusSetter(server, {
+  registerStatusTool(server, {
     name: "archive_ad",
     description: "⚠️ WRITE OPERATION — Archive an ad (status=ARCHIVED).",
     targetStatus: "ARCHIVED",
+    inputSchema: { ad_id: z.string() },
+    idField: "ad_id",
   });
 
   writeTool(
@@ -135,29 +142,6 @@ Notes:
           method: "DELETE",
         });
         return ok({ ad_id, deleted: res.success ?? true });
-      } catch (err) {
-        return fail(err);
-      }
-    },
-  );
-}
-
-function registerStatusSetter(
-  server: McpServer,
-  cfg: { name: string; description: string; targetStatus: string },
-): void {
-  writeTool(
-    server,
-    cfg.name,
-    cfg.description,
-    { ad_id: z.string() },
-    async ({ ad_id }) => {
-      try {
-        const res = await graphFetch<{ success: boolean }>(ad_id, {
-          method: "POST",
-          body: { status: cfg.targetStatus },
-        });
-        return ok({ ad_id, status: cfg.targetStatus, success: res.success ?? true });
       } catch (err) {
         return fail(err);
       }
