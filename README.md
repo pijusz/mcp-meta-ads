@@ -26,35 +26,35 @@ This MCP uses a **Business Manager System User token**. No OAuth flow is require
 ```bash
 claude mcp add meta-ads --scope user --transport stdio \
   -e META_ADS_ACCESS_TOKEN=your-system-user-token \
-  -- npx -y mcp-meta-ads@latest
+  -- npx -y mcpj-meta-ads@latest
 ```
 
 That's it. Restart Claude Code and the tools/resources are available. Every session runs the latest published version automatically.
 
-> Also works with `bunx mcp-meta-ads@latest` if you have [Bun](https://bun.sh/).
+> Also works with `bunx mcpj-meta-ads@latest` if you have [Bun](https://bun.sh/).
 > Requires Node 18+ when running via `npx`.
 
 If your environment blocks npm registry access at runtime, install once and run the published binary name directly:
 
 ```bash
-npm i -g mcp-meta-ads@latest
+npm i -g mcpj-meta-ads@latest
 claude mcp add meta-ads --scope user --transport stdio \
   -e META_ADS_ACCESS_TOKEN=your-system-user-token \
-  -- mcp-meta-ads
+  -- mcpj-meta-ads
 ```
 
 ### 3. Verify
 
 ```bash
-npx -y mcp-meta-ads@latest --version
+npx -y mcpj-meta-ads@latest --version
 # or, after global install:
-mcp-meta-ads --version
+mcpj-meta-ads --version
 ```
 
 ### Setup help
 
 ```bash
-npx -y mcp-meta-ads@latest setup
+npx -y mcpj-meta-ads@latest setup
 ```
 
 This prints the token setup steps and example MCP configuration.
@@ -64,12 +64,12 @@ This prints the token setup steps and example MCP configuration.
 Codex uses TOML, not JSON. Install once, then add to `~/.codex/config.toml`:
 
 ```bash
-npm i -g mcp-meta-ads
+npm i -g mcpj-meta-ads
 ```
 
 ```toml
 [mcp_servers.meta_ads]
-command = "mcp-meta-ads"
+command = "mcpj-meta-ads"
 
 [mcp_servers.meta_ads.env]
 META_ADS_ACCESS_TOKEN = "your-system-user-token"
@@ -93,7 +93,7 @@ Add to your MCP settings JSON:
   "mcpServers": {
     "meta-ads": {
       "command": "npx",
-      "args": ["-y", "mcp-meta-ads@latest"],
+      "args": ["-y", "mcpj-meta-ads@latest"],
       "env": {
         "META_ADS_ACCESS_TOKEN": "your-system-user-token"
       }
@@ -111,7 +111,7 @@ Add to your MCP settings JSON:
 {
   "mcpServers": {
     "meta-ads": {
-      "command": "mcp-meta-ads",
+      "command": "mcpj-meta-ads",
       "env": {
         "META_ADS_ACCESS_TOKEN": "your-system-user-token"
       }
@@ -290,8 +290,8 @@ These are only for this repository's opt-in live tests; normal MCP usage does no
 **Using global install**:
 
 ```bash
-npm update -g mcp-meta-ads
-mcp-meta-ads --version
+npm update -g mcpj-meta-ads
+mcpj-meta-ads --version
 ```
 
 The server checks GitHub Releases on startup and logs to stderr when a newer release is available.

@@ -27,11 +27,11 @@ Use the published package for production validation:
 ```bash
 claude mcp add meta-ads --scope user --transport stdio \
   -e META_ADS_ACCESS_TOKEN=... \
-  -- npx -y mcp-meta-ads@latest
+  -- npx -y mcpj-meta-ads@latest
 ```
 
 If you see `handshaking ... connection closed: initialize response`, the process is exiting before MCP init. Check these first:
 
-1. `npx -y mcp-meta-ads@latest --version` works (npm registry reachable).
+1. `npx -y mcpj-meta-ads@latest --version` works (npm registry reachable).
 2. `META_ADS_ACCESS_TOKEN` is set in MCP env.
 3. The token is a valid System User access token (test with `curl 'https://graph.facebook.com/v25.0/me?access_token=$TOKEN'`).
