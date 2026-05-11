@@ -89,13 +89,12 @@ Mutation tools have `⚠️ WRITE OPERATION` prefix in their descriptions so MCP
 | `META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS` | optional | `120000` | Abort async insights polling after this. |
 | `META_ADS_INSIGHTS_ASYNC_POLL_MS` | optional | `2000` | Base poll interval (exp backoff up to 15s). |
 | `META_ADS_LOG_LEVEL` | optional | `warn` | `error` \| `warn` \| `info` \| `debug`. |
-| `META_ADS_REQUIRE_PREHASHED` | optional | `false` | Refuse raw PII; require callers to pre-hash. |
 
 ---
 
 ## Project status & roadmap
 
-See [docs/SPEC.md](docs/SPEC.md) §10 for the phased release plan. v0.1 ships reads + campaign mutations; later releases layer in ad set/ad/creative mutations, audiences, CAPI, catalogs.
+See [docs/SPEC.md](docs/SPEC.md) §10 for the phased release plan. v0.1–v0.6 are implemented: reads, campaign / ad set / ad mutations, creative upload, audiences + targeting helpers, Conversions API, product catalogs / DPA, and Business Manager asset browsing. v1.0 is the surface-freeze release.
 
 ---
 

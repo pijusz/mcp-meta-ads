@@ -2,8 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
 import { hashField } from "@/services/pii";
-import { MetaApiError } from "@/utils/errors";
 import { readTool, writeTool } from "@/utils/register-tool";
+import { fail, ok } from "@/utils/tool-response";
 
 /**
  * Conversions API (CAPI) — server-side event ingestion + pixel reads.
@@ -168,14 +168,14 @@ For event deduplication with the browser-side Meta Pixel, set event_id to match 
           method: "POST",
           body,
         });
-        return success({
+        return ok({
           events_received: res.events_received,
           messages: res.messages,
           fbtrace_id: res.fbtrace_id,
           mode: args.test_event_code ? "test" : "live",
         });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -215,9 +215,9 @@ This is NOT a per-event log — Meta doesn't expose individual events as a strea
           `${args.pixel_id}/stats`,
           { params },
         );
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -237,9 +237,9 @@ This is NOT a per-event log — Meta doesn't expose individual events as a strea
         }>(`${actId}/adspixels`, {
           params: { fields: "id,name,code,creation_time,last_fired_time", limit: 100 },
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -347,34 +347,4 @@ export function hashCapiUserData(
     }
   }
   return out;
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

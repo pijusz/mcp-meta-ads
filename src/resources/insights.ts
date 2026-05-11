@@ -3,6 +3,7 @@ import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { errorContents } from "@/resources/_helpers";
 import { type InsightsQuery, runInsights } from "@/services/insights";
 import { normalizeActId } from "@/utils/account-id";
+import { rowsToTsv } from "@/utils/tsv";
 
 /**
  * Insights resource: `meta-ads://act_{accountId}/insights?level=...&date_preset=...`
@@ -50,7 +51,7 @@ function registerInsightsResourceVariant(
             {
               uri: uri.href,
               mimeType: "text/tab-separated-values",
-              text: toTsv(data),
+              text: rowsToTsv(data),
             },
           ],
         };
@@ -128,24 +129,4 @@ function parseInsightsParams(params: URLSearchParams): InsightsQuery {
   }
   if (params.get("compact") === "true") query.compact = true;
   return query;
-}
-
-function toTsv(rows: Array<Record<string, unknown>>): string {
-  if (rows.length === 0) return "";
-  // Use the union of keys from the first 50 rows as column order — first row's
-  // keys may not include all sparse fields.
-  const cols = new Set<string>();
-  for (const row of rows.slice(0, 50)) {
-    for (const k of Object.keys(row)) cols.add(k);
-  }
-  const headers = Array.from(cols);
-  const escapeCell = (v: unknown): string => {
-    if (v == null) return "";
-    if (typeof v === "object") return JSON.stringify(v).replace(/[\t\n\r]/g, " ");
-    return String(v).replace(/[\t\n\r]/g, " ");
-  };
-  const body = rows
-    .map((row) => headers.map((h) => escapeCell(row[h])).join("\t"))
-    .join("\n");
-  return `${headers.join("\t")}\n${body}`;
 }

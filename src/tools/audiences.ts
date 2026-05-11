@@ -5,6 +5,7 @@ import { hashRow } from "@/services/pii";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
 import { writeTool } from "@/utils/register-tool";
+import { fail, ok, stripUndefined } from "@/utils/tool-response";
 
 /**
  * Custom audience mutation tools. Part of v0.3.
@@ -125,9 +126,9 @@ For lookalikes, use create_lookalike instead — different params.`,
           method: "POST",
           body,
         });
-        return success({ id: res.id, subtype: args.subtype });
+        return ok({ id: res.id, subtype: args.subtype });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -190,7 +191,7 @@ Already-hashed SHA256 values are detected and passed through unchanged.`,
         // Build schema + data from inputs.
         const { schema, data } = normalizeUserInputs(args);
         if (schema.length === 0 || data.length === 0) {
-          return failure(
+          return fail(
             new MetaApiError({
               message:
                 "Provide users to add: pass single-field arrays (emails / phones / etc.) or both `schema` and `data`.",
@@ -198,7 +199,7 @@ Already-hashed SHA256 values are detected and passed through unchanged.`,
           );
         }
         if (data.length > 10_000) {
-          return failure(
+          return fail(
             new MetaApiError({
               message: `Meta caps customer file uploads at 10,000 rows per request; got ${data.length}. Split across multiple calls with a shared session_id.`,
             }),
@@ -224,7 +225,7 @@ Already-hashed SHA256 values are detected and passed through unchanged.`,
           method: "POST",
           body,
         });
-        return success({
+        return ok({
           audience_id: args.audience_id,
           session_id: sessionId,
           num_received: res.num_received,
@@ -232,7 +233,7 @@ Already-hashed SHA256 values are detected and passed through unchanged.`,
           invalid_entry_samples: res.invalid_entry_samples,
         });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -259,7 +260,7 @@ Same 10,000-row cap per call; same session semantics.`,
       try {
         const { schema, data } = normalizeUserInputs(args);
         if (schema.length === 0 || data.length === 0) {
-          return failure(
+          return fail(
             new MetaApiError({
               message:
                 "Provide users to remove: pass single-field arrays or both `schema` and `data`.",
@@ -267,7 +268,7 @@ Same 10,000-row cap per call; same session semantics.`,
           );
         }
         if (data.length > 10_000) {
-          return failure(
+          return fail(
             new MetaApiError({
               message: `Meta caps customer file uploads at 10,000 rows per request; got ${data.length}.`,
             }),
@@ -287,13 +288,13 @@ Same 10,000-row cap per call; same session semantics.`,
           method: "DELETE",
           body,
         });
-        return success({
+        return ok({
           audience_id: args.audience_id,
           session_id: sessionId,
           num_received: res.num_received,
         });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -314,15 +315,15 @@ Same 10,000-row cap per call; same session semantics.`,
         const { audience_id, extra, ...rest } = args;
         const body = stripUndefined({ ...rest, ...(extra ?? {}) });
         if (Object.keys(body).length === 0) {
-          return failure(new MetaApiError({ message: "No fields to update." }));
+          return fail(new MetaApiError({ message: "No fields to update." }));
         }
         const res = await graphFetch<{ success: boolean }>(audience_id, {
           method: "POST",
           body,
         });
-        return success({ audience_id, success: res.success ?? true });
+        return ok({ audience_id, success: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -337,9 +338,9 @@ Same 10,000-row cap per call; same session semantics.`,
         const res = await graphFetch<{ success?: boolean }>(audience_id, {
           method: "DELETE",
         });
-        return success({ audience_id, deleted: res.success ?? true });
+        return ok({ audience_id, deleted: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -383,9 +384,9 @@ Lookalike audiences are themselves custom audiences with subtype=LOOKALIKE — t
           method: "POST",
           body,
         });
-        return success({ id: res.id, ratio: args.ratio, country: args.country });
+        return ok({ id: res.id, ratio: args.ratio, country: args.country });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -444,43 +445,5 @@ export function normalizeUserInputs(args: {
   return {
     schema: [field],
     data: (values as string[]).map((v) => [v]),
-  };
-}
-
-function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) (out as Record<string, unknown>)[k] = v;
-  }
-  return out;
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
   };
 }

@@ -4,6 +4,7 @@ import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
 import { writeTool } from "@/utils/register-tool";
+import { fail, ok, stripUndefined } from "@/utils/tool-response";
 
 /**
  * Campaign mutation tools. v0.1 of v0.2 phase.
@@ -196,9 +197,9 @@ Notes:
           method: "POST",
           body,
         });
-        return successResponse({ id: res.id, status: args.status });
+        return ok({ id: res.id, status: args.status });
       } catch (err) {
-        return errorResponse(err);
+        return fail(err);
       }
     },
   );
@@ -233,15 +234,15 @@ Partial update — only include fields you want to change. Daily-budget changes 
           ...(extra ?? {}),
         });
         if (Object.keys(body).length === 0) {
-          return errorResponse(new MetaApiError({ message: "No fields to update." }));
+          return fail(new MetaApiError({ message: "No fields to update." }));
         }
         const res = await graphFetch<CampaignUpdateResponse>(campaign_id, {
           method: "POST",
           body,
         });
-        return successResponse({ campaign_id, success: res.success ?? true });
+        return ok({ campaign_id, success: res.success ?? true });
       } catch (err) {
-        return errorResponse(err);
+        return fail(err);
       }
     },
   );
@@ -279,9 +280,9 @@ Partial update — only include fields you want to change. Daily-budget changes 
         const res = await graphFetch<{ success?: boolean }>(campaign_id, {
           method: "DELETE",
         });
-        return successResponse({ campaign_id, deleted: res.success ?? true });
+        return ok({ campaign_id, deleted: res.success ?? true });
       } catch (err) {
-        return errorResponse(err);
+        return fail(err);
       }
     },
   );
@@ -328,13 +329,13 @@ By default, only the campaign object is copied; pass deep_copy=true to also copy
           method: "POST",
           body,
         });
-        return successResponse({
+        return ok({
           source_campaign_id: args.campaign_id,
           copied_campaign_id: res.copied_campaign_id,
           ad_object_ids: res.ad_object_ids,
         });
       } catch (err) {
-        return errorResponse(err);
+        return fail(err);
       }
     },
   );
@@ -357,54 +358,14 @@ function registerStatusSetter(
           method: "POST",
           body: { status: cfg.targetStatus },
         });
-        return successResponse({
+        return ok({
           campaign_id,
           status: cfg.targetStatus,
           success: res.success ?? true,
         });
       } catch (err) {
-        return errorResponse(err);
+        return fail(err);
       }
     },
   );
-}
-
-function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) (out as Record<string, unknown>)[k] = v;
-  }
-  return out;
-}
-
-function successResponse(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-  };
-}
-
-function errorResponse(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

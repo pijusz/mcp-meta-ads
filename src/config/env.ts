@@ -13,7 +13,6 @@ const envSchema = z.object({
   META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS: z.coerce.number().int().min(1000).default(120_000),
   META_ADS_INSIGHTS_ASYNC_POLL_MS: z.coerce.number().int().min(250).default(2000),
   META_ADS_LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("warn"),
-  META_ADS_REQUIRE_PREHASHED: z.enum(["true", "false"]).default("false"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -87,8 +86,4 @@ export function getEnv(): Env {
 
 export function shouldValidateAtStartup(): boolean {
   return process.env.META_ADS_VALIDATE_AT_STARTUP === "true";
-}
-
-export function requirePrehashed(): boolean {
-  return process.env.META_ADS_REQUIRE_PREHASHED === "true";
 }

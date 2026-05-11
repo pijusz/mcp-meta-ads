@@ -6,8 +6,9 @@ import {
   runInsights,
 } from "@/services/insights";
 import { normalizeActId } from "@/utils/account-id";
-import { MetaApiError } from "@/utils/errors";
 import { readTool } from "@/utils/register-tool";
+import { fail } from "@/utils/tool-response";
+import { rowsToTsv } from "@/utils/tsv";
 
 const LEVEL = z.enum(["account", "campaign", "adset", "ad"]);
 
@@ -129,7 +130,7 @@ export function registerInsightsTools(server: McpServer): void {
             : `# mode=${result.mode}${result.report_run_id ? ` report_run_id=${result.report_run_id}` : ""}\n${rowsToTsv(result.data)}`;
         return { content: [{ type: "text", text }] };
       } catch (err) {
-        return errorContent(err);
+        return fail(err);
       }
     },
   );
@@ -150,48 +151,8 @@ export function registerInsightsTools(server: McpServer): void {
           content: [{ type: "text", text: JSON.stringify(status, null, 2) }],
         };
       } catch (err) {
-        return errorContent(err);
+        return fail(err);
       }
     },
   );
-}
-
-function rowsToTsv(rows: Array<Record<string, unknown>>): string {
-  if (rows.length === 0) return "";
-  const cols = new Set<string>();
-  for (const row of rows.slice(0, 50)) for (const k of Object.keys(row)) cols.add(k);
-  const headers = Array.from(cols);
-  const escapeCell = (v: unknown): string => {
-    if (v == null) return "";
-    if (typeof v === "object") return JSON.stringify(v).replace(/[\t\n\r]/g, " ");
-    return String(v).replace(/[\t\n\r]/g, " ");
-  };
-  const body = rows
-    .map((row) => headers.map((h) => escapeCell(row[h])).join("\t"))
-    .join("\n");
-  return `${headers.join("\t")}\n${body}`;
-}
-
-function errorContent(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

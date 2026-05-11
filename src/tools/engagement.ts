@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
-import { MetaApiError } from "@/utils/errors";
 import { readTool } from "@/utils/register-tool";
+import { fail, ok } from "@/utils/tool-response";
 
 /**
  * Page engagement reads — comments on posts, post insights, page insights.
@@ -67,12 +67,12 @@ Returns top-level comments by default. Pass include_replies=true to also fetch n
           paging?: { cursors?: { after?: string }; next?: string };
         }>(`${args.post_id}/comments`, { params });
         const nextCursor = res.paging?.next ? res.paging.cursors?.after : undefined;
-        return success({
+        return ok({
           data: res.data ?? [],
           ...(nextCursor && { next_cursor: nextCursor }),
         });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -102,9 +102,9 @@ Common metrics: post_impressions, post_impressions_unique, post_reactions_by_typ
         }>(`${post_id}/insights`, {
           params: { metric: metrics.join(",") },
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -141,40 +141,10 @@ Examples of common metrics: page_fans, page_fan_adds, page_impressions, page_eng
         const res = await graphFetch<{
           data?: Array<{ name: string; values?: unknown[] }>;
         }>(`${args.page_id}/insights`, { params });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

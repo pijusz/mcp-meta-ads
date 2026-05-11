@@ -2,8 +2,8 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
-import { MetaApiError } from "@/utils/errors";
 import { readTool, writeTool } from "@/utils/register-tool";
+import { fail, ok } from "@/utils/tool-response";
 
 /**
  * Product catalog tools — for Dynamic Product Ads (DPA) and Advantage+ Catalog Ads.
@@ -54,9 +54,9 @@ export function registerCatalogTools(server: McpServer): void {
             limit,
           },
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -76,9 +76,9 @@ export function registerCatalogTools(server: McpServer): void {
         }>(`${catalog_id}/product_sets`, {
           params: { fields: "id,name,filter,product_count", limit },
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -119,9 +119,9 @@ Vertical defaults to 'commerce'; other options include 'hotels', 'flights', 'des
           `${args.business_id}/owned_product_catalogs`,
           { method: "POST", body },
         );
-        return success({ id: res.id, vertical: args.vertical });
+        return ok({ id: res.id, vertical: args.vertical });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -152,9 +152,9 @@ Vertical defaults to 'commerce'; other options include 'hotels', 'flights', 'des
           `${args.catalog_id}/product_sets`,
           { method: "POST", body },
         );
-        return success({ id: res.id });
+        return ok({ id: res.id });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -215,12 +215,12 @@ Limits Meta enforces (also enforced locally before sending so failures surface a
           `${args.catalog_id}/items_batch`,
           { method: "POST", body },
         );
-        return success({
+        return ok({
           handles: res.handles,
           validation_status: res.validation_status,
         });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -235,9 +235,9 @@ Limits Meta enforces (also enforced locally before sending so failures surface a
         const res = await graphFetch<{ success?: boolean }>(product_set_id, {
           method: "DELETE",
         });
-        return success({ product_set_id, deleted: res.success ?? true });
+        return ok({ product_set_id, deleted: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -252,9 +252,9 @@ Limits Meta enforces (also enforced locally before sending so failures surface a
         const res = await graphFetch<{ success?: boolean }>(catalog_id, {
           method: "DELETE",
         });
-        return success({ catalog_id, deleted: res.success ?? true });
+        return ok({ catalog_id, deleted: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -336,9 +336,9 @@ For Advantage+ Catalog Ads (the new format that supersedes traditional DPA), the
           method: "POST",
           body,
         });
-        return success({ id: res.id, product_set_id: args.product_set_id });
+        return ok({ id: res.id, product_set_id: args.product_set_id });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -376,34 +376,4 @@ export function prepareItemsBatch(input: {
     );
   }
   return { body, bodySize };
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

@@ -4,6 +4,7 @@ import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
 import { writeTool } from "@/utils/register-tool";
+import { fail, ok, stripUndefined } from "@/utils/tool-response";
 
 /**
  * Ad mutation tools. Part of v0.2.
@@ -69,9 +70,9 @@ Notes:
           method: "POST",
           body,
         });
-        return success({ id: res.id, status: args.status });
+        return ok({ id: res.id, status: args.status });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -94,15 +95,15 @@ Notes:
         const { ad_id, extra, ...rest } = args;
         const body = stripUndefined({ ...rest, ...(extra ?? {}) });
         if (Object.keys(body).length === 0) {
-          return failure(new MetaApiError({ message: "No fields to update." }));
+          return fail(new MetaApiError({ message: "No fields to update." }));
         }
         const res = await graphFetch<{ success: boolean }>(ad_id, {
           method: "POST",
           body,
         });
-        return success({ ad_id, success: res.success ?? true });
+        return ok({ ad_id, success: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -133,9 +134,9 @@ Notes:
         const res = await graphFetch<{ success?: boolean }>(ad_id, {
           method: "DELETE",
         });
-        return success({ ad_id, deleted: res.success ?? true });
+        return ok({ ad_id, deleted: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -156,48 +157,10 @@ function registerStatusSetter(
           method: "POST",
           body: { status: cfg.targetStatus },
         });
-        return success({ ad_id, status: cfg.targetStatus, success: res.success ?? true });
+        return ok({ ad_id, status: cfg.targetStatus, success: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
-}
-
-function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Partial<T> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) (out as Record<string, unknown>)[k] = v;
-  }
-  return out;
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
-import { MetaApiError } from "@/utils/errors";
 import { readTool, writeTool } from "@/utils/register-tool";
+import { fail } from "@/utils/tool-response";
 
 /**
  * Escape-hatch tools for any Graph API path not covered by the higher-level
@@ -42,7 +42,7 @@ Pass query params via the \`params\` object; array values are joined with commas
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
       } catch (err) {
-        return formatErrorResponse(err);
+        return fail(err);
       }
     },
   );
@@ -79,7 +79,7 @@ Use only when you know the exact endpoint shape; mistakes can mutate live accoun
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
       } catch (err) {
-        return formatErrorResponse(err);
+        return fail(err);
       }
     },
   );
@@ -101,32 +101,8 @@ Use only when you know the exact endpoint shape; mistakes can mutate live accoun
           content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
         };
       } catch (err) {
-        return formatErrorResponse(err);
+        return fail(err);
       }
     },
   );
-}
-
-function formatErrorResponse(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

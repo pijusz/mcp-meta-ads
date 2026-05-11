@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
-import { MetaApiError } from "@/utils/errors";
 import { readTool } from "@/utils/register-tool";
+import { fail, ok } from "@/utils/tool-response";
 
 /**
  * Targeting helpers — wraps Meta's `/search` endpoint family + a builder that
@@ -69,9 +69,9 @@ The interest taxonomy was pruned in March 2025 (sensitive-category restrictions)
         const res = await graphFetch<SearchEnvelope<InterestResult>>("search", {
           params: { type: "adinterest", q: query, limit, locale },
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -117,9 +117,9 @@ Returns 'key' values which you pass into a targeting spec's geo_locations[type] 
         };
         if (types?.length) params.location_types = JSON.stringify(types);
         const res = await graphFetch<SearchEnvelope<GeoResult>>("search", { params });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -143,9 +143,9 @@ Returns 'key' values which you pass into a targeting spec's geo_locations[type] 
         const res = await graphFetch<SearchEnvelope<BehaviorResult>>("search", {
           params,
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -258,9 +258,9 @@ Always also accepts pre-resolved IDs (interest_ids, behavior_ids) to skip the lo
           device_platforms: args.device_platforms,
           publisher_platforms: args.publisher_platforms,
         });
-        return success({ targeting: spec });
+        return ok({ targeting: spec });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -333,34 +333,4 @@ export function assembleTargeting(input: BuildTargetingInput): Record<string, un
   }
 
   return spec;
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

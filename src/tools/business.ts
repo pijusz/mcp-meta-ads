@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { graphFetch } from "@/services/meta-graph-api";
-import { MetaApiError } from "@/utils/errors";
 import { readTool } from "@/utils/register-tool";
+import { fail, ok } from "@/utils/tool-response";
 
 /**
  * Business Manager asset browsing.
@@ -48,12 +48,12 @@ export function registerBusinessTools(server: McpServer): void {
           params,
         });
         const nextCursor = res.paging?.next ? res.paging.cursors?.after : undefined;
-        return success({
+        return ok({
           data: res.data ?? [],
           ...(nextCursor && { next_cursor: nextCursor }),
         });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -81,9 +81,9 @@ export function registerBusinessTools(server: McpServer): void {
           "id,account_id,name,account_status",
           limit,
         );
-        return success({ data: accounts });
+        return ok({ data: accounts });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -104,9 +104,9 @@ export function registerBusinessTools(server: McpServer): void {
           name?: string;
           category?: string;
         }>(business_id, "pages", ownership, "id,name,category", limit);
-        return success({ data: pages });
+        return ok({ data: pages });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -128,9 +128,9 @@ export function registerBusinessTools(server: McpServer): void {
           code?: string;
           last_fired_time?: string;
         }>(business_id, "pixels", ownership, "id,name,code,last_fired_time", limit);
-        return success({ data: pixels });
+        return ok({ data: pixels });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -150,9 +150,9 @@ export function registerBusinessTools(server: McpServer): void {
         }>(`${business_id}/system_users`, {
           params: { fields: "id,name,role", limit },
         });
-        return success({ data: res.data ?? [] });
+        return ok({ data: res.data ?? [] });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -200,34 +200,4 @@ export async function fetchBmEdges<T extends { id: string }>(
     }
   }
   return results;
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }

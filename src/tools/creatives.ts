@@ -6,6 +6,7 @@ import { graphFetch } from "@/services/meta-graph-api";
 import { normalizeActId } from "@/utils/account-id";
 import { MetaApiError } from "@/utils/errors";
 import { writeTool } from "@/utils/register-tool";
+import { fail, ok } from "@/utils/tool-response";
 
 /**
  * Creative tools — image upload + creative assembly.
@@ -64,14 +65,14 @@ Limits: 8 MB, JPG / PNG / GIF. Animated GIFs are supported only in some placemen
     async (args) => {
       try {
         if (!args.image_path && !args.image_url) {
-          return failure(
+          return fail(
             new MetaApiError({
               message: "Must provide either image_path or image_url.",
             }),
           );
         }
         if (args.image_path && args.image_url) {
-          return failure(
+          return fail(
             new MetaApiError({
               message: "Provide exactly one of image_path / image_url, not both.",
             }),
@@ -94,7 +95,7 @@ Limits: 8 MB, JPG / PNG / GIF. Animated GIFs are supported only in some placemen
         });
         const images = Object.values(res.images ?? {});
         if (images.length === 0) {
-          return failure(
+          return fail(
             new MetaApiError({
               message: "Meta returned no images in response.",
               raw: res,
@@ -102,20 +103,20 @@ Limits: 8 MB, JPG / PNG / GIF. Animated GIFs are supported only in some placemen
           );
         }
         // For single-file uploads there's one entry; surface its hash + url.
-        return success({
+        return ok({
           image_hash: images[0].hash,
           url: images[0].url,
           all: res.images,
         });
       } catch (err) {
         if ((err as { code?: string }).code === "ENOENT") {
-          return failure(
+          return fail(
             new MetaApiError({
               message: `Image file not found: ${args.image_path}`,
             }),
           );
         }
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -182,7 +183,7 @@ use 'asset_feed_spec' instead.`,
     async (args) => {
       try {
         if (!args.object_story_spec && !args.asset_feed_spec) {
-          return failure(
+          return fail(
             new MetaApiError({
               message:
                 "Provide object_story_spec (standard creative) or asset_feed_spec (Advantage+ Creative). To attach an existing creative to a new ad, pass `creative: { creative_id }` to create_ad instead — create_creative always builds a new creative.",
@@ -190,7 +191,7 @@ use 'asset_feed_spec' instead.`,
           );
         }
         if (args.object_story_spec && args.asset_feed_spec) {
-          return failure(
+          return fail(
             new MetaApiError({
               message:
                 "object_story_spec and asset_feed_spec are mutually exclusive. Pick one: object_story_spec for a standard creative, asset_feed_spec for Advantage+ Creative.",
@@ -212,9 +213,9 @@ use 'asset_feed_spec' instead.`,
           method: "POST",
           body,
         });
-        return success({ id: res.id });
+        return ok({ id: res.id });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
@@ -229,40 +230,10 @@ use 'asset_feed_spec' instead.`,
         const res = await graphFetch<{ success?: boolean }>(creative_id, {
           method: "DELETE",
         });
-        return success({ creative_id, deleted: res.success ?? true });
+        return ok({ creative_id, deleted: res.success ?? true });
       } catch (err) {
-        return failure(err);
+        return fail(err);
       }
     },
   );
-}
-
-function success(payload: Record<string, unknown>): {
-  content: Array<{ type: "text"; text: string }>;
-} {
-  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
-}
-
-function failure(err: unknown): {
-  content: Array<{ type: "text"; text: string }>;
-  isError: true;
-} {
-  const payload =
-    err instanceof MetaApiError
-      ? {
-          error: {
-            message: err.message,
-            type: err.type,
-            code: err.code,
-            subcode: err.subcode,
-            fbtrace_id: err.fbtraceId,
-            hint: err.hint,
-            status: err.status,
-          },
-        }
-      : { error: { message: (err as Error).message ?? String(err) } };
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
-    isError: true,
-  };
 }
