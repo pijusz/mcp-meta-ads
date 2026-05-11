@@ -392,7 +392,21 @@ Tier 4 scope, broken into shippable releases. Each release follows the **CPTRP**
 | **v0.4.0** | Conversions API (read pixel events + send_conversion_events with test/live). Pixel-level resources. |
 | **v0.5.0** | Catalogs / product sets / DPA creatives. Bulk product upsert. |
 | **v0.6.0** | Page engagement read (comments, page insights), business manager assets browsing, share_audience between BMs. |
-| **v1.0.0** | Stable surface freeze. Migration guide for any URI/tool renames. Docs polish, examples cookbook. |
+| **v1.0.0** | Stable surface freeze. **Proper token caching** (see §16). Migration guide for any URI/tool renames. Docs polish, examples cookbook. |
+
+### §16 sketch — token caching (v1.0 requirement)
+
+Today: env var read once, memoized via `getEnv()`. Effectively zero caching beyond module-singleton state. Fine for stdio MCP where the server is one process per session.
+
+What "proper token caching" should look like for v1.0:
+
+- **Startup probe result cache** — `META_ADS_VALIDATE_AT_STARTUP=true` currently calls `GET /me` on every server boot. Cache the validation result keyed by a hash of the token, with a TTL (~24h), so repeated MCP restarts don't burn API calls.
+- **`appsecret_proof` cache** — computed once per request from the token + app secret. Memoize across the process lifetime so we don't re-HMAC on every call.
+- **`/me/adaccounts` cache** — the accounts list rarely changes. A 5-minute TTL cache lets the LLM call `meta-ads://accounts` repeatedly without hitting the API. Invalidate on any 401/403 (which means token state changed).
+- **Per-token `/me` identity cache** — once we know who the token represents, that's stable until the token rotates. Cache for the process lifetime.
+- **Future: OAuth refresh cache** — only relevant if we ever add OAuth (currently a non-goal, §15). At that point we'd need a token store with refresh-on-expire semantics, persisted to disk between MCP restarts.
+
+Implementation note: caches MUST be keyed by `sha256(token)` so a token rotation invalidates everything. Never key by `account_id` alone — different tokens may have different visibility into the same account.
 
 The version numbers mirror mcp-gads's recent cadence; nothing is load-bearing about them — just a guide.
 
@@ -476,3 +490,5 @@ This document is the single source of truth for v0.x design. When a decision cha
 - **2026-05-11** — Initial draft. All 15 decisions from interview captured.
 - **2026-05-11** — Bumped pinned Graph API version from `v23.0` → `v25.0` (released Feb 18, 2026; current stable as of bump date). Decision row #10 updated.
 - **2026-05-11** — `docs/RESEARCH.md` §2.7 expanded with v24/v25 version-boundary deltas + 2025–2026 OCC timeline. Implementation checklist (§4) reorganized to mark completed items and add v24/v25-specific TODOs (`is_adset_budget_sharing_enabled`, `placement_soft_opt_out`, `destination_spec`, daily-budget +75% flexibility warning, async-job failure metadata, `smart_promotion_type` strip, flagged-audience preflight). Flagged the **2026-05-19 global Advantage+ enforcement deadline** (8 days out) — any campaign-creation work before then must not allow legacy ASC/AAC.
+- **2026-05-11** — Campaign mutation tools shipped (`create_campaign`, `update_campaign`, `pause_campaign`, `resume_campaign`, `archive_campaign`, `delete_campaign`, `duplicate_campaign`). v25 async-job failure metadata wired through `pollAsyncJob` — failed insights jobs now surface `error_code` / `error_user_msg` instead of generic "Job Failed". Note `use_unified_attribution_setting` / `action_report_time` intentionally not exposed on insights API.
+- **2026-05-11** — Added **§16 (token caching)** as a v1.0 release requirement: startup probe TTL cache, `appsecret_proof` memoization, `/me/adaccounts` TTL cache (5 min), per-token `/me` identity cache, all keyed by `sha256(token)`.

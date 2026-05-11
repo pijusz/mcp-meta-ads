@@ -126,3 +126,68 @@ Timeout/poll cadence is configurable via `META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS` / 
 **No gate.** If `META_ADS_ACCESS_TOKEN` is set, all writable tools register. Posture: the operator is the admin; this matches GitHub/Linear MCP behavior. Re-evaluate if real users get burned.
 
 All mutation tool descriptions start with **⚠️ WRITE OPERATION** so MCP clients (Claude Code, Cursor) render the permission prompt clearly.
+
+## Tests
+
+Three tiers:
+
+| Tier | Path | Run with | When |
+|---|---|---|---|
+| Unit | `tests/*.test.ts` | `bun test` | Always — runs in CI without credentials |
+| Live integration | `tests/live/*.test.ts` | `bun run test:live` | Local opt-in only — hits real Meta API |
+| Fallback cleanup | `scripts/cleanup-test-entities.ts` | `bun run test:cleanup` | When a live test crashed and left orphans |
+
+### Running live tests
+
+Live tests are gated by three env vars (all required):
+
+- `META_ADS_RUN_LIVE_TESTS=true` — explicit opt-in (the `test:live` script sets this)
+- `META_ADS_ACCESS_TOKEN` — your System User token (read from `.env`)
+- `META_ADS_TEST_ACCOUNT_ID` — the ad account these tests are allowed to mutate. **Never falls back to the first account on `/me/adaccounts` — always require explicit opt-in to avoid accidental writes to production.**
+
+```bash
+# In .env or shell env:
+META_ADS_TEST_ACCOUNT_ID=act_1234567890
+
+bun run test:live
+```
+
+If any of the three vars are missing, every live test skips with a reason in the describe label (e.g. `[live] campaigns (META_ADS_TEST_ACCOUNT_ID not set)`).
+
+### Cleanup invariant
+
+Live tests follow a strict create-then-delete contract:
+
+- Every created entity is registered via `registry.trackCampaign(id)` (etc.).
+- `afterEach` runs `registry.cleanup()` — deletes everything tracked, in dependency order (ads → adsets → campaigns → creatives → audiences).
+- 404s during cleanup are swallowed (object was already deleted by the test itself).
+- Every entity name is prefixed `mcp-meta-ads-test-` so the fallback `bun run test:cleanup` script can find orphans if a test crashed.
+
+```bash
+# Dry-run: show what would be deleted without doing it
+bun run test:cleanup:dry
+
+# Nuke any leftover mcp-meta-ads-test-* entities in the test account
+bun run test:cleanup
+```
+
+### Adding a new live test
+
+```ts
+import { afterEach, describe, expect, test } from "bun:test";
+import { createRegistry, getTestAccountId, liveSkipReason, liveTestsEnabled, testName } from "./_helpers";
+
+const registry = createRegistry();
+afterEach(() => registry.cleanup());
+
+describe.skipIf(!liveTestsEnabled())(
+  `[live] my feature (${liveSkipReason()})`,
+  () => {
+    test("does the thing", async () => {
+      const actId = getTestAccountId();
+      const name = testName("myfeature");
+      // ... create entity, track it, assert, etc.
+    });
+  },
+);
+```

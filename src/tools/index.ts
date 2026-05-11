@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerCampaignTools } from "@/tools/campaigns";
 import { registerInsightsTools } from "@/tools/insights";
 import { registerRawTools } from "@/tools/raw";
 
@@ -10,7 +11,7 @@ import { registerRawTools } from "@/tools/raw";
 export function registerAllTools(server: McpServer): void {
   registerRawTools(server);
   registerInsightsTools(server);
-  // TODO(v0.1): registerCampaignTools(server);
+  registerCampaignTools(server);
   // TODO(v0.2): registerAdSetTools(server);
   // TODO(v0.2): registerAdTools(server);
   // TODO(v0.2): registerCreativeTools(server);

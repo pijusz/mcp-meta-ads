@@ -3,6 +3,8 @@ import { z } from "zod";
 
 const envSchema = z.object({
   META_ADS_ACCESS_TOKEN: z.string().min(1, "META_ADS_ACCESS_TOKEN is required"),
+  /** Meta App ID. Optional for normal use; required for scripts/create-test-account.ts. */
+  META_ADS_APP_ID: z.string().default(""),
   META_ADS_APP_SECRET: z.string().default(""),
   META_GRAPH_API_VERSION: z.string().default("v25.0"),
   META_ADS_VALIDATE_AT_STARTUP: z.enum(["true", "false"]).default("false"),

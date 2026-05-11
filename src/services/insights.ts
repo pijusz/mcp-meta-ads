@@ -126,11 +126,16 @@ function serializeQuery(
   if (query.time_increment !== undefined) {
     params.time_increment = String(query.time_increment);
   }
-  // Default to 1d_click + 7d_click — view windows were removed Jan 2026.
+  // Default to 1d_click + 7d_click — view windows (7d_view, 28d_view) were
+  // removed across all live versions on 2026-01-12.
   const windows = query.action_attribution_windows ?? ["1d_click", "7d_click"];
   if (windows.length) params.action_attribution_windows = JSON.stringify(windows);
   if (query.filtering?.length) params.filtering = JSON.stringify(query.filtering);
   if (query.limit !== undefined) params.limit = query.limit;
+  // Note: `use_unified_attribution_setting` and `action_report_time` are
+  // intentionally NOT exposed on InsightsQuery — Meta ignores them as of
+  // 2025-06-10. If callers ever start passing them in via raw input, we
+  // strip them by simply not having a field to write them to.
   return params;
 }
 
@@ -199,6 +204,20 @@ export async function runInsights(
   };
 }
 
+interface AsyncJobStatus {
+  async_status: string;
+  async_percent_completion?: number;
+  // v25.0+: these fields populate when async_status === "Job Failed".
+  error_code?: number;
+  error_subcode?: number;
+  error_message?: string;
+  error_user_title?: string;
+  error_user_msg?: string;
+}
+
+const ASYNC_STATUS_FIELDS =
+  "async_status,async_percent_completion,error_code,error_subcode,error_message,error_user_title,error_user_msg";
+
 async function pollAsyncJob(reportRunId: string): Promise<void> {
   const env = getEnv();
   const startTime = Date.now();
@@ -206,19 +225,25 @@ async function pollAsyncJob(reportRunId: string): Promise<void> {
 
   while (Date.now() - startTime < env.META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS) {
     await sleep(interval);
-    const status = await graphFetch<{
-      async_status: string;
-      async_percent_completion?: number;
-    }>(reportRunId, {
-      params: { fields: "async_status,async_percent_completion" },
+    const status = await graphFetch<AsyncJobStatus>(reportRunId, {
+      params: { fields: ASYNC_STATUS_FIELDS },
     });
 
     if (status.async_status === "Job Completed") {
       return;
     }
     if (TERMINAL_FAILED.has(status.async_status)) {
+      // v25.0+: Meta returns error_* fields when the job fails. Surface them
+      // through MetaApiError so callers see the real reason instead of a
+      // generic "Job Failed". The fields may be undefined on pre-v25 paths,
+      // in which case we fall back to the status string.
+      const userMsg =
+        status.error_user_msg ?? status.error_message ?? status.async_status;
+      const messagePrefix = status.error_user_title ? `${status.error_user_title}: ` : "";
       throw new MetaApiError({
-        message: `Async insights job ${status.async_status} (report_run_id=${reportRunId})`,
+        message: `Async insights ${status.async_status} (report_run_id=${reportRunId}) — ${messagePrefix}${userMsg}`,
+        code: status.error_code,
+        subcode: status.error_subcode,
       });
     }
     log.debug(
@@ -253,6 +278,7 @@ async function drainAsyncResults(
 
 /**
  * Resume / inspect an existing async insights job.
+ * Includes v25.0+ failure metadata (`error_*` fields) when the job has failed.
  */
 export async function getInsightsJobStatus(reportRunId: string): Promise<{
   id: string;
@@ -260,10 +286,16 @@ export async function getInsightsJobStatus(reportRunId: string): Promise<{
   async_percent_completion?: number;
   date_start?: string;
   date_stop?: string;
+  error_code?: number;
+  error_subcode?: number;
+  error_message?: string;
+  error_user_title?: string;
+  error_user_msg?: string;
 }> {
   return graphFetch(reportRunId, {
     params: {
-      fields: "id,async_status,async_percent_completion,date_start,date_stop",
+      fields:
+        "id,async_status,async_percent_completion,date_start,date_stop,error_code,error_subcode,error_message,error_user_title,error_user_msg",
     },
   });
 }
