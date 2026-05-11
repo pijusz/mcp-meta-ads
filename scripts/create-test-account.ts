@@ -45,8 +45,11 @@ interface AccountList {
 }
 
 async function findExisting(appId: string): Promise<AccountInfo | null> {
-  // Meta's API exposes a test-ad-account list under multiple edges depending on
-  // app version. Try `/owned_ad_accounts` first (newer), fall back to `/adaccounts`.
+  // Meta exposes a test-ad-account list under multiple edges depending on
+  // app config. `owned_ad_accounts` returns all owned accounts but might
+  // filter out test ones; `adaccounts` typically includes test accounts.
+  // We check BOTH edges before deciding nothing exists — otherwise we'd
+  // create a duplicate if the first edge returned a list without our match.
   const candidates = [`${appId}/owned_ad_accounts`, `${appId}/adaccounts`];
   for (const edge of candidates) {
     try {
@@ -60,8 +63,7 @@ async function findExisting(appId: string): Promise<AccountInfo | null> {
         (a) => a.name === TEST_ACCOUNT_NAME && a.is_test_account !== false,
       );
       if (match) return match;
-      // No match but we got a list — return null (don't try the other edge).
-      if (res.data !== undefined) return null;
+      // No match on this edge — keep trying the others.
     } catch (err) {
       // Edge not available on this app/version; try the next one.
       if (err instanceof MetaApiError && err.code === 100) continue;
