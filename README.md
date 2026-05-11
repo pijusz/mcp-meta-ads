@@ -1,4 +1,6 @@
-<h1 align="center">mcp-meta-ads</h1>
+<p align="center">
+  <img src="logo.svg" alt="mcp-meta-ads" width="280" />
+</p>
 
 <p align="center">
   Meta (Facebook) Ads MCP server — manage campaigns, ad sets, ads, creatives, audiences, pixels, catalogs & insights via natural language.
