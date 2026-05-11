@@ -1,10 +1,12 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAdTools } from "@/tools/ads";
 import { registerAdSetTools } from "@/tools/adsets";
+import { registerAudienceTools } from "@/tools/audiences";
 import { registerCampaignTools } from "@/tools/campaigns";
 import { registerCreativeTools } from "@/tools/creatives";
 import { registerInsightsTools } from "@/tools/insights";
 import { registerRawTools } from "@/tools/raw";
+import { registerTargetingTools } from "@/tools/targeting";
 
 /**
  * Tool registration barrel.
@@ -18,8 +20,8 @@ export function registerAllTools(server: McpServer): void {
   registerAdSetTools(server);
   registerAdTools(server);
   registerCreativeTools(server);
-  // TODO(v0.3): registerAudienceTools(server);
-  // TODO(v0.3): registerTargetingTools(server);
+  registerAudienceTools(server);
+  registerTargetingTools(server);
   // TODO(v0.4): registerCapiTools(server);
   // TODO(v0.5): registerCatalogTools(server);
   // TODO(v0.6): registerEngagementTools(server);

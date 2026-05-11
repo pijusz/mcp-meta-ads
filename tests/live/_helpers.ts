@@ -43,6 +43,28 @@ export function liveSkipReason(): string {
   return "(enabled)";
 }
 
+/**
+ * Additional gate for tests that require the test ad account to be attached
+ * to a Meta Business. Specifically: customer-list custom audiences require
+ * `business`-attached accounts; standalone sandbox accounts get a 200/1870050
+ * error ("Business Account Needed to Create/Edit This Audience").
+ *
+ * Sandbox test accounts are not auto-attached to a business — operator must
+ * either move the test account into a BM (Business Settings → Accounts →
+ * Ad Accounts → Add → "I own") or accept that audience tests will skip.
+ */
+export function liveBusinessAttachedTestsEnabled(): boolean {
+  return liveTestsEnabled() && process.env.META_ADS_TEST_BUSINESS_ATTACHED === "true";
+}
+
+export function liveBusinessAttachedSkipReason(): string {
+  if (!liveTestsEnabled()) return liveSkipReason();
+  if (process.env.META_ADS_TEST_BUSINESS_ATTACHED !== "true") {
+    return "META_ADS_TEST_BUSINESS_ATTACHED != true (audience tests need a BM-attached account)";
+  }
+  return "(enabled)";
+}
+
 export function getTestAccountId(): string {
   const raw = process.env.META_ADS_TEST_ACCOUNT_ID;
   if (!raw) {
