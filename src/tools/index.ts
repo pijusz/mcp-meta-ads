@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerInsightsTools } from "./insights.js";
-import { registerRawTools } from "./raw.js";
+import { registerInsightsTools } from "@/tools/insights";
+import { registerRawTools } from "@/tools/raw";
 
 /**
  * Tool registration barrel.

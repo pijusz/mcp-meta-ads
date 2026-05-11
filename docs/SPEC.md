@@ -11,7 +11,7 @@
 
 ## 1. Goal
 
-A Model Context Protocol server that exposes Meta's Marketing API (Graph API v23.0) to AI clients so that an LLM agent can:
+A Model Context Protocol server that exposes Meta's Marketing API (Graph API v25.0) to AI clients so that an LLM agent can:
 
 - **Read** the full ads hierarchy + insights (account → campaign → ad set → ad → creative → audience).
 - **Mutate** every writable surface: create, update, pause/resume, archive, delete.
@@ -40,7 +40,7 @@ Each row below was an explicit choice during the planning interview. **Rationale
 | 7 | **Asset upload** | **Local file paths only** in v0.1 (`image_path: "/abs/path.jpg"`). URL/base64 deferred. | Matches stdio MCP deployment (server runs on user's machine). Avoids context bloat from base64. |
 | 8 | **Rate-limit posture** | **Header-aware adaptive backoff** — parse `X-Business-Use-Case-Usage` + `X-App-Usage` on every response, proactively slow at >75%, exponential backoff on 429/throttle subcodes. | Meta throttling is brutal and per-account; reactive-only retries leave agents stuck. |
 | 9 | **PII hashing for audiences** | **Server hashes raw PII** (lowercases/trims/normalizes per Meta spec, then SHA256). | Removes the #1 footgun (hash-of-raw-email producing zero matches). Stdio MCP runs locally, so PII never leaves the user's machine. |
-| 10 | **API version pinning** | **Pin to `v23.0`** in code; bump in a minor release after testing. No env override. | Predictable; mirrors mcp-gads's v23 pin posture. |
+| 10 | **API version pinning** | **Pin to `v25.0`** in code (initially planned v23.0 — bumped 2026-05-11 when v25.0 was found to be current stable); bump in a minor release after testing. Override available via `META_GRAPH_API_VERSION` env. | Predictable; mirrors mcp-gads's pin-and-bump posture. |
 | 11 | **Conversions API scope** | **Full CAPI — read + write events.** | Consistent with the no-gate philosophy. Includes test_events and live events. Documented warning that bad event_id usage corrupts attribution. |
 | 12 | **Targeting spec helpers** | **Builder-style helpers** — `build_targeting({ countries: ['US'], age: [25, 54], interests: ['fitness'] })` internally does lookups + assembles Meta's nested spec. Plus the raw spec is always accepted as an escape hatch. | Highest LLM ergonomics; LLM works with human concepts, not FB-internal interest IDs. |
 | 13 | **Pagination** | **One page at a time with cursors.** Each resource read returns one page + `next_cursor`. | Honest about the underlying model. LLM must explicitly request more. Token-conscious. |
@@ -125,7 +125,7 @@ src/
 |---|---|---|
 | `META_ADS_ACCESS_TOKEN` | ✓ | System User token from Business Manager. Long-lived (effectively non-expiring unless revoked). |
 | `META_ADS_APP_SECRET` | optional | If present, all requests include `appsecret_proof` for additional security (HMAC-SHA256 of the token with the app secret). |
-| `META_GRAPH_API_VERSION` | optional | Defaults to `v23.0`. Documented but not encouraged to override. |
+| `META_GRAPH_API_VERSION` | optional | Defaults to `v25.0`. Documented but not encouraged to override. |
 | `META_ADS_RATE_LIMIT_THRESHOLD` | optional | Default `75` — when any usage counter exceeds this %, server inserts proactive backoff. |
 | `META_ADS_DEFAULT_PAGE_SIZE` | optional | Default `25` (Meta's own default). |
 | `META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS` | optional | Default `120000` (2 min) — abort polling after this. |
@@ -474,3 +474,5 @@ This document is the single source of truth for v0.x design. When a decision cha
 
 ### Changelog
 - **2026-05-11** — Initial draft. All 15 decisions from interview captured.
+- **2026-05-11** — Bumped pinned Graph API version from `v23.0` → `v25.0` (released Feb 18, 2026; current stable as of bump date). Decision row #10 updated.
+- **2026-05-11** — `docs/RESEARCH.md` §2.7 expanded with v24/v25 version-boundary deltas + 2025–2026 OCC timeline. Implementation checklist (§4) reorganized to mark completed items and add v24/v25-specific TODOs (`is_adset_budget_sharing_enabled`, `placement_soft_opt_out`, `destination_spec`, daily-budget +75% flexibility warning, async-job failure metadata, `smart_promotion_type` strip, flagged-audience preflight). Flagged the **2026-05-19 global Advantage+ enforcement deadline** (8 days out) — any campaign-creation work before then must not allow legacy ASC/AAC.

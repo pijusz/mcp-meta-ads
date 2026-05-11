@@ -1,7 +1,7 @@
-import { getAppSecretProof, getAuthHeaders } from "../auth/index.js";
-import { getEnv } from "../config/env.js";
-import { MetaApiError, parseGraphError } from "../utils/errors.js";
-import { log } from "../utils/logger.js";
+import { getAppSecretProof, getAuthHeaders } from "@/auth/index";
+import { getEnv } from "@/config/env";
+import { MetaApiError, parseGraphError } from "@/utils/errors";
+import { log } from "@/utils/logger";
 
 const BASE = "https://graph.facebook.com";
 

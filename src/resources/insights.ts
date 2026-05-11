@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { type InsightsQuery, runInsights } from "../services/insights.js";
-import { normalizeActId } from "../utils/account-id.js";
-import { errorContents } from "./_helpers.js";
+import { errorContents } from "@/resources/_helpers";
+import { type InsightsQuery, runInsights } from "@/services/insights";
+import { normalizeActId } from "@/utils/account-id";
 
 /**
  * Insights resource: `meta-ads://act_{accountId}/insights?level=...&date_preset=...`

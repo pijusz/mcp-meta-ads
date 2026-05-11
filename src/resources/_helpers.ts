@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { graphFetch, graphPaginate } from "../services/meta-graph-api.js";
-import { normalizeActId } from "../utils/account-id.js";
-import { MetaApiError } from "../utils/errors.js";
+import { graphFetch, graphPaginate } from "@/services/meta-graph-api";
+import { normalizeActId } from "@/utils/account-id";
+import { MetaApiError } from "@/utils/errors";
 
 export function errorContents(uri: string, err: unknown) {
   const payload =

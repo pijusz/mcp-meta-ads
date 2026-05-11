@@ -4,10 +4,10 @@ import {
   getInsightsJobStatus,
   type InsightsQuery,
   runInsights,
-} from "../services/insights.js";
-import { normalizeActId } from "../utils/account-id.js";
-import { MetaApiError } from "../utils/errors.js";
-import { readTool } from "../utils/register-tool.js";
+} from "@/services/insights";
+import { normalizeActId } from "@/utils/account-id";
+import { MetaApiError } from "@/utils/errors";
+import { readTool } from "@/utils/register-tool";
 
 const LEVEL = z.enum(["account", "campaign", "adset", "ad"]);
 

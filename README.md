@@ -82,7 +82,7 @@ Mutation tools have `⚠️ WRITE OPERATION` prefix in their descriptions so MCP
 |---|---|---|---|
 | `META_ADS_ACCESS_TOKEN` | ✓ | — | System User token from Business Manager. |
 | `META_ADS_APP_SECRET` | optional | — | Enables `appsecret_proof` on every request (recommended). |
-| `META_GRAPH_API_VERSION` | optional | `v23.0` | Override the pinned API version. |
+| `META_GRAPH_API_VERSION` | optional | `v25.0` | Override the pinned API version. |
 | `META_ADS_VALIDATE_AT_STARTUP` | optional | `false` | Run `GET /me` at startup to fail fast on bad tokens. |
 | `META_ADS_RATE_LIMIT_THRESHOLD` | optional | `75` | % of any usage counter that triggers proactive backoff. |
 | `META_ADS_DEFAULT_PAGE_SIZE` | optional | `25` | Per-page result count for paginated reads. |

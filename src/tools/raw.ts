@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { graphFetch } from "../services/meta-graph-api.js";
-import { MetaApiError } from "../utils/errors.js";
-import { readTool, writeTool } from "../utils/register-tool.js";
+import { graphFetch } from "@/services/meta-graph-api";
+import { MetaApiError } from "@/utils/errors";
+import { readTool, writeTool } from "@/utils/register-tool";
 
 /**
  * Escape-hatch tools for any Graph API path not covered by the higher-level

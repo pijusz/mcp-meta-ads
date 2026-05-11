@@ -1,11 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerAccountResources } from "./accounts.js";
-import { registerAdResources } from "./ads.js";
-import { registerAdSetResources } from "./adsets.js";
-import { registerAudienceResources } from "./audiences.js";
-import { registerCampaignResources } from "./campaigns.js";
-import { registerCreativeResources } from "./creatives.js";
-import { registerInsightsResources } from "./insights.js";
+import { registerAccountResources } from "@/resources/accounts";
+import { registerAdResources } from "@/resources/ads";
+import { registerAdSetResources } from "@/resources/adsets";
+import { registerAudienceResources } from "@/resources/audiences";
+import { registerCampaignResources } from "@/resources/campaigns";
+import { registerCreativeResources } from "@/resources/creatives";
+import { registerInsightsResources } from "@/resources/insights";
 
 /**
  * Resource registration barrel.

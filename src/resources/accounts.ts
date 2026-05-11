@@ -3,8 +3,8 @@ import {
   type ResourceMetadata,
   ResourceTemplate,
 } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { graphFetch, graphPaginate } from "../services/meta-graph-api.js";
-import { errorContents } from "./_helpers.js";
+import { errorContents } from "@/resources/_helpers";
+import { graphFetch, graphPaginate } from "@/services/meta-graph-api";
 
 interface AdAccount {
   id: string;

@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { loadEnv, shouldValidateAtStartup } from "@/config/env";
+import { createServer } from "@/server";
+import { validateToken } from "@/services/meta-graph-api";
+import { log } from "@/utils/logger";
 import pkg from "../package.json";
-import { loadEnv, shouldValidateAtStartup } from "./config/env.js";
-import { createServer } from "./server.js";
-import { validateToken } from "./services/meta-graph-api.js";
-import { log } from "./utils/logger.js";
 
 export const VERSION = pkg.version;
 

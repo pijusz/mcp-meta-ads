@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import { getEnv } from "../config/env.js";
+import { getEnv } from "@/config/env";
 
 /**
  * Build the Authorization header for Meta Graph API requests.

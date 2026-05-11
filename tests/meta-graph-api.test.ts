@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-// Set required env BEFORE importing the modules that read it at load time.
+// Tests must not read the developer's real .env (would couple assertions to
+// whatever the user happens to have set). Point the loader at a path that
+// doesn't exist and pin every var the test depends on. Order doesn't matter
+// relative to the import below — env reads happen lazily inside graphFetch,
+// not at module load time.
+process.env.META_ADS_ENV_FILE = "/tmp/mcp-meta-ads-test-no-such-file.env";
 process.env.META_ADS_ACCESS_TOKEN = "test-token";
-process.env.META_GRAPH_API_VERSION = "v23.0";
+process.env.META_ADS_APP_SECRET = "";
+delete process.env.META_GRAPH_API_VERSION;
+process.env.META_ADS_DEFAULT_PAGE_SIZE = "25";
+process.env.META_ADS_RATE_LIMIT_THRESHOLD = "75";
 
-const { graphPaginate } = await import("../src/services/meta-graph-api.js");
+import { graphPaginate } from "@/services/meta-graph-api";
 
 interface Captured {
   url: string;
@@ -15,11 +23,12 @@ const originalFetch = globalThis.fetch;
 
 function stubFetch(responder: (url: string, init?: RequestInit) => Response): Captured[] {
   const captured: Captured[] = [];
-  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const stub = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     captured.push({ url, init });
     return responder(url, init);
   };
+  globalThis.fetch = stub as unknown as typeof fetch;
   return captured;
 }
 
@@ -103,16 +112,16 @@ describe("graphPaginate", () => {
 });
 
 describe("graphFetch URL construction", () => {
-  test("prepends configured API version when path omits it", async () => {
+  test("prepends the default API version when path omits it", async () => {
     const captured = stubFetch(() => jsonResponse({ data: [] }));
     await graphPaginate("act_123/campaigns", {});
-    expect(captured[0]!.url).toContain("/v23.0/act_123/campaigns");
+    expect(captured[0]!.url).toContain("/v25.0/act_123/campaigns");
   });
 
   test("respects an explicit version prefix in path", async () => {
     const captured = stubFetch(() => jsonResponse({ data: [] }));
     await graphPaginate("v22.0/act_123/campaigns", {});
     expect(captured[0]!.url).toContain("/v22.0/act_123/campaigns");
-    expect(captured[0]!.url).not.toContain("/v23.0/v22.0/");
+    expect(captured[0]!.url).not.toContain("/v25.0/v22.0/");
   });
 });

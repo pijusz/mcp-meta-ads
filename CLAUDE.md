@@ -8,7 +8,7 @@ Meta (Facebook) Ads MCP server in Bun/TypeScript. See [AGENTS.md](AGENTS.md) for
 - **Entry:** `src/index.ts`
 - **Build:** `bun run build` → `mcp-meta-ads` (standalone binary), `bun run build:npm` → `dist/index.js`
 - **Test:** `bun test`
-- **API version:** v23.0 (Meta Graph API / Marketing API)
+- **API version:** v25.0 (Meta Graph API / Marketing API)
 
 ## Key patterns
 
@@ -34,4 +34,4 @@ If you see `handshaking ... connection closed: initialize response`, the process
 
 1. `npx -y mcp-meta-ads@latest --version` works (npm registry reachable).
 2. `META_ADS_ACCESS_TOKEN` is set in MCP env.
-3. The token is a valid System User access token (test with `curl 'https://graph.facebook.com/v23.0/me?access_token=$TOKEN'`).
+3. The token is a valid System User access token (test with `curl 'https://graph.facebook.com/v25.0/me?access_token=$TOKEN'`).

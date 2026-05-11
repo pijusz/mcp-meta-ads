@@ -6,7 +6,7 @@ import {
   normalizeName,
   normalizePhone,
   normalizeZip,
-} from "../src/services/pii.js";
+} from "@/services/pii";
 
 describe("pii normalization", () => {
   test("email: lowercase and trim", () => {

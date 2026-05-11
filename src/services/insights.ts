@@ -1,7 +1,7 @@
-import { getEnv } from "../config/env.js";
-import { MetaApiError } from "../utils/errors.js";
-import { log } from "../utils/logger.js";
-import { graphFetch } from "./meta-graph-api.js";
+import { getEnv } from "@/config/env";
+import { graphFetch } from "@/services/meta-graph-api";
+import { MetaApiError } from "@/utils/errors";
+import { log } from "@/utils/logger";
 
 /**
  * Insights runner with auto-async fallback.

@@ -4,7 +4,7 @@ import { z } from "zod";
 const envSchema = z.object({
   META_ADS_ACCESS_TOKEN: z.string().min(1, "META_ADS_ACCESS_TOKEN is required"),
   META_ADS_APP_SECRET: z.string().default(""),
-  META_GRAPH_API_VERSION: z.string().default("v23.0"),
+  META_GRAPH_API_VERSION: z.string().default("v25.0"),
   META_ADS_VALIDATE_AT_STARTUP: z.enum(["true", "false"]).default("false"),
   META_ADS_RATE_LIMIT_THRESHOLD: z.coerce.number().int().min(0).max(100).default(75),
   META_ADS_DEFAULT_PAGE_SIZE: z.coerce.number().int().min(1).max(100).default(25),

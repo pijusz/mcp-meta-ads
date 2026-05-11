@@ -63,9 +63,11 @@ annotations: {
 
 ---
 
-## 2. Meta Marketing API v23.0 — implementation specifics
+## 2. Meta Marketing API v23.0+ — implementation specifics
 
-Release date: **May 29, 2025**. Sunset: ~Q3 2027. v24.0 (Oct 2025) and v25.0 (Feb 2026) bring breaking changes — see §2.7.
+> **Pin update (2026-05-11):** Default `META_GRAPH_API_VERSION` is now **`v25.0`** (released Feb 18, 2026; current stable). The v23-specific path examples below remain illustrative — endpoint shapes are stable across v23→v25. §2.7 lists what changed at each version boundary.
+
+Release dates: **v23.0** May 29, 2025 · **v24.0** Oct 8, 2025 · **v25.0** Feb 18, 2026. Each version typically lives ~2 years, so v23 sunsets ~Q3 2027.
 
 ### 2.1 Async insights flow
 
@@ -198,18 +200,86 @@ Required: `event_name`, `event_time`, `action_source`. If `action_source="websit
 
 **Test events:** `test_event_code` at request body top level (not inside `data[]`).
 
-### 2.7 v23 breaking changes / posture
+### 2.7 Breaking changes by version
 
-1. **`advantage_state` is read-only** on campaigns.
-2. **`smart_promotion_type`** being removed in v25 — stop writing it.
-3. **Advantage+ audience is default** for new ad sets. Pass `targeting_automation.advantage_audience = 0` to opt out.
-4. **Age/gender are suggestions**, not constraints, under targeting automation.
-5. **`instagram_destination_id` now returns `ig_user_id`** instead of `instagram_actor_id`.
-6. **`is_sac_cfca_terms_certified` retracted** — stop sending (Aug 27, 2025).
-7. **Attribution windows: 7d-view and 28d-view fully removed Jan 2026.** v23 still accepts them but returns zeros. **Default to `["1d_click", "7d_click"]`** only.
-8. **`use_unified_attribution_setting` and `action_report_time` are ignored** as of Jun 10, 2025.
-9. **Legacy ASC / AAC creation blocked in v24+.** v23 still allows. Migration field: `migrate_to_advantage_plus`.
-10. **`special_ad_categories` required** for housing/employment/credit/social-issues — use `["NONE"]` if not applicable.
+We're pinned to **v25.0**. The relevant version-boundary deltas:
+
+#### ⏰ Imminent enforcement deadlines (2026)
+
+| Date | Change | Impact |
+|---|---|---|
+| **2026-05-19** | Legacy Advantage+ Shopping (ASC) / Advantage+ App (AAC) **create / duplicate / update** blocked on **every live version** (was v24+ only) | Hardens the v24-only block into a global one. After this date, even v23 callers can't touch legacy ASC/AAC. Use `migrate_to_advantage_plus`. |
+| **2026-01-12** ✅ past | `7d_view` + `28d_view` attribution windows fully removed | Done. Default to `["1d_click","7d_click"]` — already enforced in `services/insights.ts`. |
+| **2026-01-15** ✅ past | Pre-2025-10-08 detailed-targeting interests stop delivering | Campaigns with affected interests halted. Duplicating auto-rewrites to the consolidated option. |
+| **2026-01-06** ✅ past | Flagged custom audience / custom conversion updates fail on **every live version** | Started v24-only Oct 2025; now global. Affects any campaign mutation that references a flagged audience. |
+| **2025-09-09** ✅ past | Pre-v22 Graph API calls rejected | Anything pinned older than v22.0 stopped working. We pin v25 so N/A. |
+
+#### v23.0 (May 29, 2025) — original baseline
+
+- **`advantage_state` is read-only** on campaigns.
+- **`instagram_destination_id` now returns `ig_user_id`** (was `instagram_actor_id`).
+- **Advantage+ audience is default** for new ad sets. Pass `targeting_automation.advantage_audience = 0` to opt out.
+- **Age/gender are suggestions**, not constraints, under targeting automation.
+- **`special_ad_categories` required** for housing / employment / credit / social-issues verticals. Use `["NONE"]` if not applicable.
+
+#### v24.0 (Oct 8, 2025)
+
+**Removed / deprecated:**
+
+- **Legacy ASC / AAC creation BLOCKED** — migrate via `migrate_to_advantage_plus` (preserves campaign ID). Becomes global on 2026-05-19.
+- **Messenger lead ads via API.** `POST /{page-id}/messenger_lead_forms`, `POST /{ad-account-id}/adcreatives`, and `GET /{messenger-lead-gen-template-id}` no longer allow creating lead-gen ads that deliver into Messenger. Ads Manager creation still works.
+- **Facebook Video Feeds placement.** Delivery halted; setting this placement in `adsets` POST/PATCH returns errors. Reels is the replacement. Affects existing campaigns too.
+
+**New fields / parameters:**
+
+- **`is_adset_budget_sharing_enabled`** — conditionally required when setting ad-set–level budget. Set `true` to allow Meta to lend up to 20% of the ad set's budget to siblings in the same campaign (non-CBO only).
+- **`placement_soft_opt_out`** (ad set level) — allows up to 5% of spend to flow to *excluded* placements when Meta predicts a lift. Sales + Leads objectives only.
+- **`allow_upsert`** on `POST /{product-catalog-id}/products` — upsert semantics for product items.
+- **`destination_spec`** on ad creatives — Meta auto-picks the optimal landing page. Implicit for new creatives. Query via `GET /{ad-creative-id}?fields=destination_spec` to see what got resolved.
+- **`lookalike_spec` stricter validation** — invalid subfields now fail at creation (was previously lenient).
+
+**Default behavior changes:**
+
+- ⚠️ **Daily budget flexibility 25% → 75%.** Daily spend can swing up to **+75%** above the daily amount as long as the weekly cap holds. Anomaly-detection / budget-monitoring code that assumed ≤25% over-spend per day **will misfire** — surface this in `update_campaign` budget tools when they land.
+- **Website Destination Optimization** implicitly on for new creatives (via `destination_spec`).
+
+**Limits:**
+
+- **Catalog Items Batch API:** request payload cap **30 MB** (item count cap of 5,000 unchanged).
+
+#### v25.0 (Feb 18, 2026) — **current pin**
+
+- **`smart_promotion_type` removed** from campaign creation. Strip from caller-supplied bodies.
+- **Async insights failure metadata.** `GET /{report_run_id}` returns `error_code`, `error_message`, `error_subcode`, `error_user_title`, `error_user_msg` when `async_status === "Job Failed"`. Wire through `pollAsyncJob()` so we surface the real reason — currently we throw a generic "Job Failed" message.
+- **`error_code` type widened: `uint` → `int`** on `GET /{ad-report-run-id}`. Negative values are now possible — typed-language SDKs need to widen the field. Our code uses `number` (signed) so fine.
+- **Legacy ASC/AAC block extends globally on 2026-05-19** (see deadlines table above).
+
+#### Out-of-cycle changes (apply across all live versions)
+
+| Effective | Change |
+|---|---|
+| **2025-03** | Sensitive-category interest taxonomy pruned. Many interest IDs silently return empty. Always call `adinterestvalid` before targeting. |
+| **2025-06-10** | `use_unified_attribution_setting` and `action_report_time` **ignored** — responses always mirror ad-set-level settings. Strip from caller params. |
+| **2025-06-10** | **Reach retention cap.** When `reach` is requested with any breakdown, lookback is capped at **13 months** (was 37). |
+| **mid-2025** | Insights API enforces Ads-Manager-style attribution by default; on-Facebook conversions count at impression time. To get the old behavior, **explicitly pass `action_attribution_windows`** — which `services/insights.ts` already does. |
+| **2025-08-27** | `is_sac_cfca_terms_certified` / `is_eligible_for_sac_campaigns` retracted (Special Ad Category certification rollout walked back). Stop sending. |
+
+#### Sunset clocks
+
+Meta keeps each version live for ~2 years. Third-party recaps cite **v22.0 sunset 2026-02-10** (one week before v25 shipped) — **not confirmed from a Meta-hosted source**; verify if a user needs to stay on v22. v23/v24/v25 sunsets aren't published yet.
+
+| Version | Released | Expected sunset |
+|---|---|---|
+| v22.0 | Jan 2025 | ~Feb 2026 (third-party, unverified) |
+| v23.0 | May 29, 2025 | ~Q3 2027 |
+| v24.0 | Oct 8, 2025 | ~Q4 2027 |
+| v25.0 | Feb 18, 2026 | ~Q1 2028 |
+
+#### Caveats on this section
+
+- OCC-2025 and the Marketing API v24/v25 changelog pages truncated repeatedly during research. Items above are cross-referenced against Meta's blog, releasebot.io, ppc.land, and dojoai but should be re-verified against `developers.facebook.com/docs/marketing-api/marketing-api-changelog/version2{4,5}.0/` before code depends on a specific date.
+- **New error subcodes for v24/v25 weren't published in any reachable source.** Update `utils/errors.ts` as we discover them empirically.
+- `lookalike_spec` strict validation: releasebot dates to v24, one snippet to v25 — treat as v24.
 
 ### 2.8 Custom audience customer file upload
 
@@ -274,17 +344,28 @@ Other `type` values: `adgeolocation`, `adgeolocationmeta`, `adradiussuggestion`,
 
 For each phase in [SPEC.md §10](SPEC.md):
 
-- [ ] **graphFetch** — already handles 4 / 17 / 32 / 613 retries. Add 80000 / 80001 / 80002 / 80004 to retryable set.
-- [ ] **Async insights polling** — 10s base, exponential up to 15s, terminal status `Job Completed | Failed | Skipped`, abort at `META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS`.
-- [ ] **Default attribution windows** — `["1d_click", "7d_click"]` (drop view variants — removed Jan 2026).
-- [ ] **`use_unified_attribution_setting`** — strip from any caller-supplied params (ignored since Jun 10, 2025).
-- [ ] **Compact mode** — `run_insights({ compact: true })` strips `omni_*` action duplicates.
-- [ ] **Breakdown auto-fix** — `platform_position` → ensure `publisher_platform`; `media_type` → clear `action_breakdowns`.
+- [x] **graphFetch** — already handles 4 / 17 / 32 / 613 / 80000–80004 retries.
+- [x] **Async insights polling** — 2s default base (`META_ADS_INSIGHTS_ASYNC_POLL_MS`), exponential up to 15s, terminal status `Job Completed | Failed | Skipped`, abort at `META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS`.
+- [x] **Default attribution windows** — `["1d_click", "7d_click"]` enforced in `services/insights.ts`.
+- [x] **Compact mode** — `run_insights({ compact: true })` strips `omni_*` / `offsite_*` action duplicates.
+- [x] **Breakdown auto-fix** — `platform_position` → ensures `publisher_platform`; `media_type` → clears `action_breakdowns`.
+- [ ] **Async-job failure metadata (v25)** — `pollAsyncJob` should pull `error_code` / `error_message` / `error_subcode` / `error_user_title` / `error_user_msg` from the failed GET response and pass through to `MetaApiError`. Currently surfaces a generic "Job Failed" message.
+- [ ] **`use_unified_attribution_setting`** — strip from caller params (ignored since 2025-06-10). Currently passed through.
 - [ ] **Video upload** — use Resumable Upload API path, not legacy chunked.
 - [ ] **Special ad categories** — when creating a campaign, accept `special_ad_categories?: string[]` and require `["NONE"]` if the caller doesn't pass it for non-restricted verticals.
+- [ ] **`is_adset_budget_sharing_enabled` (v24)** — when create_adset sets a budget at the ad-set level, surface this param. Default `true` matches Meta's recommendation.
+- [ ] **`placement_soft_opt_out` (v24)** — expose on `create_adset` for Sales/Leads objectives.
+- [ ] **`destination_spec` (v24)** — read back on `meta-ads://act_X/adcreatives/{id}` to expose Meta's resolved landing page. Add to creative resource fields.
+- [ ] **Daily budget +75% flexibility warning** — when `update_campaign` changes `daily_budget`, surface a hint that actual daily spend can be up to 75% over the cap (was 25% pre-v24). Important for any anomaly-detection downstream.
+- [ ] **Catalog Items Batch payload cap** — `bulk_upsert_products` must split into ≤30 MB requests (item count cap still 5,000).
+- [ ] **`allow_upsert` (v24)** — expose on `bulk_upsert_products` for create-or-update semantics.
+- [ ] **`lookalike_spec` validation (v24)** — make sure our Zod schema for `create_lookalike` matches Meta's strict validation rules; otherwise users get cryptic errors.
+- [ ] **`smart_promotion_type` strip (v25)** — if any caller-supplied campaign body contains this field, strip silently.
+- [ ] **`adinterestvalid`** — call before any `targeting` mutation that uses interests (interest taxonomy pruned 2025-03).
 - [ ] **Custom audience batching** — surface `session_id` / `batch_seq` / `last_batch_flag` correctly across multi-call uploads. Cap rows at 10,000 per request.
-- [ ] **`adinterestvalid`** — call before any `targeting` mutation that uses interests.
 - [ ] **PII hashing** — `services/pii.ts` already has the table; double-check against §2.6 + §2.8 when we wire it up.
+- [ ] **Flagged-audience preflight** — when creating/updating a campaign that references a custom audience or custom conversion, optionally pre-fetch the audience to check `delivery_status`. Otherwise the mutation fails with an opaque error (as of 2026-01-06, applies all versions).
+- [ ] **2026-05-19 deadline reminder** — if our roadmap reaches campaign creation before then, ensure we never let the caller create legacy ASC/AAC (objective + structure that Meta would reject globally after the deadline). Today's date is 2026-05-11; 8 days out.
 - [ ] **Error hints** — expand `utils/errors.ts` table with the new codes/subcodes (§2.3, §2.4).
 
 ---

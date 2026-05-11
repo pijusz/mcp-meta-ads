@@ -1,5 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerListResource, registerSingleResource } from "./_helpers.js";
+import { registerListResource, registerSingleResource } from "@/resources/_helpers";
 
 const LIST_FIELDS = [
   "id",
