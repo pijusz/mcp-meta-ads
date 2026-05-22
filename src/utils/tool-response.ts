@@ -39,6 +39,10 @@ export function fail(err: unknown) {
             fbtrace_id: err.fbtraceId,
             hint: err.hint,
             status: err.status,
+            // Meta's own human-readable diagnostic — far more useful than `message`
+            // (which is often just "Invalid parameter"). Surface only when present.
+            ...(err.userTitle && { user_title: err.userTitle }),
+            ...(err.userMsg && { user_msg: err.userMsg }),
           },
         }
       : { error: { message: (err as Error).message ?? String(err) } };

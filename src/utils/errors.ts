@@ -8,6 +8,7 @@ const HINTS: Record<string, string> = {
   // code only
   "1": "API unknown error — usually transient; retry once.",
   "2": "API service error — usually transient; retry once.",
+  "3": "Meta App lacks a required capability for this endpoint. Common causes: (a) the App backing the System User token is in Development mode — switch it to Live in App Dashboard, or (b) the App is missing a permission like `ads_management`. For `upload_image` specifically, URL-fetch requires extra capability; use a local file path instead.",
   "4": "Application request limit reached — backing off.",
   "10": "Permission denied — check System User permissions on this account.",
   "17": "User request limit reached for this account.",
@@ -34,6 +35,8 @@ const HINTS: Record<string, string> = {
   "100:1487504":
     "Ad creative missing call-to-action or required object_story_spec field.",
   "100:1815105": "Invalid ad image / video reference.",
+  "100:1885183":
+    "Meta App is in Development mode — switch it to Live in Meta App Dashboard → App Mode before creating ad creatives.",
   "190:458": "App not installed for user.",
   "190:460": "Password changed; token revoked. Regenerate the System User token.",
   "190:463": "Session expired — regenerate the token.",
@@ -50,6 +53,10 @@ export interface MetaErrorInfo {
   fbtraceId?: string;
   hint?: string;
   status?: number;
+  /** Meta's human-readable explanation — far more useful than `message` when present. */
+  userMsg?: string;
+  /** Short title that pairs with userMsg. */
+  userTitle?: string;
   raw?: unknown;
 }
 
@@ -60,6 +67,8 @@ export class MetaApiError extends Error {
   readonly fbtraceId?: string;
   readonly hint?: string;
   readonly status?: number;
+  readonly userMsg?: string;
+  readonly userTitle?: string;
   readonly raw?: unknown;
 
   constructor(info: MetaErrorInfo) {
@@ -71,6 +80,8 @@ export class MetaApiError extends Error {
     this.fbtraceId = info.fbtraceId;
     this.hint = info.hint;
     this.status = info.status;
+    this.userMsg = info.userMsg;
+    this.userTitle = info.userTitle;
     this.raw = info.raw;
   }
 }
@@ -116,6 +127,9 @@ export function parseGraphError(status: number, body: unknown): MetaApiError {
     subcode,
     fbtraceId: typeof err.fbtrace_id === "string" ? err.fbtrace_id : undefined,
     hint: hintForError(code, subcode),
+    userMsg: typeof err.error_user_msg === "string" ? err.error_user_msg : undefined,
+    userTitle:
+      typeof err.error_user_title === "string" ? err.error_user_title : undefined,
     raw: body,
   });
 }
