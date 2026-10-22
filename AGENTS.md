@@ -97,7 +97,7 @@ Timeout/poll cadence is configurable via `META_ADS_INSIGHTS_ASYNC_TIMEOUT_MS` / 
 
 1. Create or edit a file in `src/tools/`
 2. Export a `registerXTools(server: McpServer)` function
-3. Use `server.tool(name, description, zodSchema, handler)` with **MCP annotations** (`destructiveHint`, `idempotentHint`, `readOnlyHint`)
+3. Register via `readTool` / `writeTool` (`utils/register-tool.ts`, wraps `server.registerTool`). MCP annotations are derived from the tool name: `delete_*`/`archive_*`/`remove_*` → destructive + idempotent; `update_*`/`pause_*`/`resume_*` → destructive (overwrite) + idempotent; `create_*`/`duplicate_*`/`upload_*`/`add_*`/`send_*` → additive. Anything else defaults to destructive, non-idempotent
 4. Handler must return `{ content: [{ type: "text", text }] }`
 5. Import and call registration in `src/tools/index.ts`
 6. Mutation tool descriptions start with **⚠️ WRITE OPERATION**

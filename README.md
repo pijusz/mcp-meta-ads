@@ -149,6 +149,8 @@ This server is **resource-first** for reads and **tool-first** for mutations. Li
 
 Mutation tools have a `⚠️ WRITE OPERATION` prefix in their descriptions so MCP clients render permission prompts clearly. **There is no mutation gate** — if the token is wired up, write tools are live.
 
+Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`): reads are read-only; `create_*` / `duplicate_*` / `upload_*` / `add_*` / `send_*` are additive; `update_*` / `pause_*` / `resume_*` / `bulk_upsert_products` overwrite (destructive, idempotent); `delete_*` / `archive_*` / `remove_*` / `raw_graph_delete` are destructive; `raw_graph_post` is treated as destructive and non-idempotent.
+
 ### Raw Graph API
 | Tool | Description |
 |------|-------------|
