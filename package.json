@@ -1,6 +1,6 @@
 {
   "name": "mcpj-meta-ads",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Meta (Facebook) Ads MCP server — manage campaigns, ad sets, ads, creatives, audiences & insights via natural language",
   "type": "module",
   "main": "dist/index.js",
