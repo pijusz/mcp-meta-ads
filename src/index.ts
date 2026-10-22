@@ -64,7 +64,7 @@ Then add this MCP to your client, e.g. Claude Code:
 
   claude mcp add meta-ads --scope user --transport stdio \\
     -e META_ADS_ACCESS_TOKEN=$META_ADS_ACCESS_TOKEN \\
-    -- npx -y mcp-meta-ads@latest
+    -- npx -y mcpj-meta-ads@latest
 
 See README.md for the full env reference.
 `);
@@ -84,7 +84,7 @@ function checkForUpdates() {
     .then((data: { tag_name?: string } | null) => {
       if (!data?.tag_name) return;
       const latest = data.tag_name.replace(/^v/, "");
-      if (latest !== VERSION) {
+      if (isNewer(latest, VERSION)) {
         log.warn(
           `v${latest} available (current: v${VERSION}). Download: https://github.com/pijusz/mcp-meta-ads/releases/latest`,
         );
@@ -92,4 +92,14 @@ function checkForUpdates() {
     })
     .catch(() => {})
     .finally(() => clearTimeout(timer));
+}
+
+/** True when semver `a` is strictly greater than `b` (numeric x.y.z only). */
+function isNewer(a: string, b: string): boolean {
+  const pa = a.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => Number.parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
+  }
+  return false;
 }
