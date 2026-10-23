@@ -264,7 +264,7 @@ Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `ide
 | `META_ADS_ENV_FILE` | No | `.env` | Path to `.env` file (loaded if present, never overrides existing env) |
 | `META_ADS_APP_ID` | No | — | Meta App ID; required only for `scripts/create-test-account.ts` |
 | `META_ADS_APP_SECRET` | No | — | Enables `appsecret_proof` on every request |
-| `META_GRAPH_API_VERSION` | No | `v25.0` | Meta Graph API version |
+| `META_GRAPH_API_VERSION` | No | `v26.0` | Meta Graph API version |
 | `META_ADS_VALIDATE_AT_STARTUP` | No | `false` | Run a `GET /me` startup probe |
 | `META_ADS_RATE_LIMIT_THRESHOLD` | No | `75` | Usage percentage that triggers proactive backoff |
 | `META_ADS_DEFAULT_PAGE_SIZE` | No | `25` | Default page size for paginated reads |

@@ -149,7 +149,11 @@ For an image-only creative (no link), use 'photo_data' instead of 'link_data'.
 For video, 'video_data' (requires video_id from upload_video).
 
 The 'object_story_spec' field is the most common shape. For Advantage+ Creative,
-use 'asset_feed_spec' instead.`,
+use 'asset_feed_spec' instead.
+
+v26 notes:
+- If the advertiser has an eligible shop, Meta defaults new creatives to destination_spec.destination_type = WEBSITE_AND_SHOP. To keep website-only, pass extra: { destination_spec: { destination_type: 'WEBSITE_AND_SHOP_OPT_OUT' } }.
+- Poll ads are gone (all versions from 2026-10-27): don't send poll_spec or an interactive_components_spec of type 'poll'.`,
     {
       account_id: z.string(),
       name: z.string().min(1).optional(),

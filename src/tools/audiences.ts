@@ -350,14 +350,22 @@ Same 10,000-row cap per call; same session semantics.`,
     "create_lookalike",
     `⚠️ WRITE OPERATION — Create a lookalike audience derived from a source audience.
 
-A lookalike picks users who behave similarly to your source audience, within a target country, at a specified ratio (1% = closest match / smallest reach, 10% = broadest / largest reach).
+A lookalike picks users who behave similarly to your source audience, at a specified ratio (1% = closest match / smallest reach, 10% = broadest / largest reach).
+
+Since 2026-09-01 (all API versions) Meta ignores lookalike \`country\` / \`location_spec\` and creates a countryless lookalike. Its delivery locations come from the ad set's targeting (geo_locations), so set the country there.
 
 Lookalike audiences are themselves custom audiences with subtype=LOOKALIKE — they show up in list audience queries the same way.`,
     {
       account_id: z.string(),
       name: z.string().min(1),
       origin_audience_id: z.string().describe("Source custom audience ID."),
-      country: z.string().length(2).describe("2-letter ISO country code, e.g. 'US'."),
+      country: z
+        .string()
+        .length(2)
+        .optional()
+        .describe(
+          "DEPRECATED, ignored. Meta stopped honouring lookalike country on 2026-09-01; set the location in the ad set targeting instead. Accepted for backward compatibility and not sent.",
+        ),
       ratio: z
         .number()
         .min(0.01)
@@ -373,8 +381,9 @@ Lookalike audiences are themselves custom audiences with subtype=LOOKALIKE — t
           name: args.name,
           subtype: "LOOKALIKE",
           origin_audience_id: args.origin_audience_id,
+          // `country` / `location_spec` are ignored by Meta since 2026-09-01
+          // (deprecation warning only), so we no longer send them.
           lookalike_spec: {
-            country: args.country.toUpperCase(),
             ratio: args.ratio,
             origin: [{ id: args.origin_audience_id, type: "custom_audience" }],
           },
@@ -384,7 +393,13 @@ Lookalike audiences are themselves custom audiences with subtype=LOOKALIKE — t
           method: "POST",
           body,
         });
-        return ok({ id: res.id, ratio: args.ratio, country: args.country });
+        return ok({
+          id: res.id,
+          ratio: args.ratio,
+          ...(args.country && {
+            note: "country is ignored by Meta since 2026-09-01; the lookalike is countryless. Set geo_locations on the ad set.",
+          }),
+        });
       } catch (err) {
         return fail(err);
       }

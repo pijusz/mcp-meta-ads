@@ -82,16 +82,18 @@ Returns top-level comments by default. Pass include_replies=true to also fetch n
     "get_post_insights",
     `Read insights for a single post — impressions, reactions, video views, etc.
 
-Common metrics: post_impressions, post_impressions_unique, post_reactions_by_type_total, post_engaged_users, post_video_views, post_clicks. Pass an array of metric names; Meta returns each with its value series.`,
+Common metrics: post_media_view, post_total_media_view_unique, post_reactions_by_type_total, post_clicks, post_video_views, post_impressions_paid, post_impressions_organic. Pass an array of metric names; Meta returns each with its value series.
+
+post_impressions / post_impressions_unique are deprecated above Graph API v25 (use post_media_view / post_total_media_view_unique), and post_engaged_users is gone. Meta requires a Page access token for this endpoint; a System User token without one gets error 190 "must be called with a Page Access Token".`,
     {
       post_id: z.string(),
       metrics: z
         .array(z.string())
         .default([
-          "post_impressions",
-          "post_impressions_unique",
-          "post_engaged_users",
+          "post_media_view",
+          "post_total_media_view_unique",
           "post_reactions_by_type_total",
+          "post_clicks",
         ])
         .describe("Metric names to fetch. Each returns its own series."),
     },
@@ -116,7 +118,9 @@ Common metrics: post_impressions, post_impressions_unique, post_reactions_by_typ
 
 Period controls time granularity: 'day' (daily series), 'week' / 'days_28' (rolling window endpoints), 'month' (monthly aggregates), 'lifetime' (cumulative).
 
-Examples of common metrics: page_fans, page_fan_adds, page_impressions, page_engaged_users, page_views_total.`,
+Examples of current metrics: page_media_view, page_total_media_view_unique, page_post_engagements, page_follows, page_daily_follows_unique, page_views_total, page_video_views.
+
+Meta has retired many legacy Page metrics on all versions (page_impressions, page_fans and page_engaged_users now return "(#100) The value must be a valid insights metric"), and page_impressions_unique is deprecated above v25. This endpoint needs a Page access token; a System User token without one gets error 190 "must be called with a Page Access Token".`,
     {
       page_id: z.string(),
       metrics: z.array(z.string()).min(1),

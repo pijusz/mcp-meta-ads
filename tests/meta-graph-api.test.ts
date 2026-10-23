@@ -115,13 +115,13 @@ describe("graphFetch URL construction", () => {
   test("prepends the default API version when path omits it", async () => {
     const captured = stubFetch(() => jsonResponse({ data: [] }));
     await graphPaginate("act_123/campaigns", {});
-    expect(captured[0]!.url).toContain("/v25.0/act_123/campaigns");
+    expect(captured[0]!.url).toContain("/v26.0/act_123/campaigns");
   });
 
   test("respects an explicit version prefix in path", async () => {
     const captured = stubFetch(() => jsonResponse({ data: [] }));
     await graphPaginate("v22.0/act_123/campaigns", {});
     expect(captured[0]!.url).toContain("/v22.0/act_123/campaigns");
-    expect(captured[0]!.url).not.toContain("/v25.0/v22.0/");
+    expect(captured[0]!.url).not.toContain("/v26.0/v22.0/");
   });
 });

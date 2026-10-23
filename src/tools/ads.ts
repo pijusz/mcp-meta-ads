@@ -31,7 +31,8 @@ export function registerAdTools(server: McpServer): void {
 Notes:
 - Status defaults to PAUSED.
 - 'creative' is either { creative_id: 'CREATIVE_ID' } referencing an existing creative, or an inline creative spec — see Meta's adcreative reference.
-- For most uses: build the creative first with create_creative, then pass { creative_id } here.`,
+- For most uses: build the creative first with create_creative, then pass { creative_id } here.
+- Website-and-app campaigns can't use creatives with applink_treatment='web_only' (all versions from 2026-10-27). Use 'automatic' or 'deeplink_with_web_fallback'.`,
     {
       account_id: z.string().describe("Ad account ID, with or without 'act_' prefix."),
       adset_id: z.string().describe("Parent ad set ID."),

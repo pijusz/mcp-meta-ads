@@ -202,7 +202,7 @@ Required: `event_name`, `event_time`, `action_source`. If `action_source="websit
 
 ### 2.7 Breaking changes by version
 
-We're pinned to **v25.0**. The relevant version-boundary deltas:
+We're pinned to **v26.0** (bumped 2026-10-23). The relevant version-boundary deltas:
 
 #### ⏰ Imminent enforcement deadlines (2026)
 
@@ -247,12 +247,27 @@ We're pinned to **v25.0**. The relevant version-boundary deltas:
 
 - **Catalog Items Batch API:** request payload cap **30 MB** (item count cap of 5,000 unchanged).
 
-#### v25.0 (Feb 18, 2026) — **current pin**
+#### v25.0 (Feb 18, 2026)
 
 - **`smart_promotion_type` removed** from campaign creation. Strip from caller-supplied bodies.
 - **Async insights failure metadata.** `GET /{report_run_id}` returns `error_code`, `error_message`, `error_subcode`, `error_user_title`, `error_user_msg` when `async_status === "Job Failed"`. Wire through `pollAsyncJob()` so we surface the real reason — currently we throw a generic "Job Failed" message.
 - **`error_code` type widened: `uint` → `int`** on `GET /{ad-report-run-id}`. Negative values are now possible — typed-language SDKs need to widen the field. Our code uses `number` (signed) so fine.
 - **Legacy ASC/AAC block extends globally on 2026-05-19** (see deadlines table above).
+
+#### v26.0 (Jul 29, 2026) — **current pin**
+
+Source: developers.facebook.com/documentation/ads-commerce/marketing-api/marketing-api-changelog/version26.0 (the old `/docs/marketing-api/...version26.0` URL 404s) and /docs/graph-api/changelog/version26.0. Several items apply to **all versions on 2026-10-27**.
+
+- **Lookalike `country` / `location_spec` ignored** (all versions, 2026-09-01): Meta creates a countryless lookalike; locations come from the ad set. `create_lookalike` no longer sends `country` (param kept optional, deprecated).
+- **Explicit `targeting_automation.advantage_audience`** required for HEC/financial ad sets with constrained targeting (error `ADS_TARGETING__REQUIRE_EXPLICIT_ADVANTAGE_AUDIENCE_FLAG`). `create_adset` / `update_adset` take an `advantage_audience: 0|1` param.
+- **Placements:** Instagram Explore feed removed (v26+, explicit use errors); Messenger Stories (`story` in `messenger_positions`) silently dropped. `build_targeting` doesn't emit positions, so no code change; noted in tool descriptions.
+- **Shops Ads default:** eligible creatives default to `destination_spec.destination_type = WEBSITE_AND_SHOP`; opt out with `WEBSITE_AND_SHOP_OPT_OUT`. Noted in `create_creative`.
+- **Poll ads removed** (`poll_spec`, `interactive_components_spec` type `poll`) and **`applink_treatment=web_only`** disallowed for Web+App campaigns (all versions 2026-10-27). Not used by our code; noted in descriptions.
+- **Delivery estimate** `daily_outcomes_curve` / `budget_guardrail` / `estimate_dau` removed. Not used.
+- **Graph protocol:** `pretty` / `debug` ignored, `date_format` and root `GET /?ids=` error, ETag/304 removed. Our client uses none of these (only `raw_graph_get` could pass them through).
+- **Pages (New Pages Experience):** `current_location`, `genre`, `network`, `parking`, `start_info` error. Not requested by our code.
+- **Commerce Order Management API** removed. Not used.
+- Version table: v25.0 available until **2027-02-23**, v24.0 until 2026-11-10.
 
 #### Out-of-cycle changes (apply across all live versions)
 
@@ -273,7 +288,8 @@ Meta keeps each version live for ~2 years. Third-party recaps cite **v22.0 sunse
 | v22.0 | Jan 2025 | ~Feb 2026 (third-party, unverified) |
 | v23.0 | May 29, 2025 | ~Q3 2027 |
 | v24.0 | Oct 8, 2025 | ~Q4 2027 |
-| v25.0 | Feb 18, 2026 | ~Q1 2028 |
+| v25.0 | Feb 18, 2026 | 2027-02-23 (Meta version table) |
+| v26.0 | Jul 29, 2026 | TBD |
 
 #### Caveats on this section
 

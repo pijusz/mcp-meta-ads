@@ -42,6 +42,16 @@ const OPTIMIZATION_GOAL = z.enum([
   "ADVERTISER_SILOED_VALUE",
   "IN_APP_VALUE",
   "AD_VIEWERSHIP",
+  // Present in the v26 Business SDK spec (AdSet_optimization_goal).
+  "APP_INSTALLS_AND_OFFSITE_CONVERSIONS",
+  "AUTOMATIC_OBJECTIVE",
+  "DERIVED_EVENTS",
+  "ENGAGED_PAGE_VIEWS",
+  "MESSAGING_APPOINTMENT_CONVERSION",
+  "MESSAGING_DEEP_CONVERSATION_AND_FOLLOW",
+  "MESSAGING_PURCHASE_CONVERSION",
+  "REMINDERS_SET",
+  "SUBSCRIBERS",
 ]);
 
 const BILLING_EVENT = z.enum([
@@ -56,6 +66,8 @@ const BILLING_EVENT = z.enum([
   "LISTING_INTERACTION",
   "MESSAGES",
   "PURCHASE",
+  "CLICKS",
+  "OFFER_CLAIMS",
 ]);
 
 const STATUS = z.enum(["ACTIVE", "PAUSED", "ARCHIVED", "DELETED"]);
@@ -76,6 +88,26 @@ interface AdSetCopyResponse {
   ad_object_ids?: Array<Record<string, string>>;
 }
 
+/**
+ * Merge an explicit Advantage+ audience flag into a targeting spec without
+ * dropping other targeting_automation keys. Exported for testing.
+ */
+export function withAdvantageAudience(
+  targeting: Record<string, unknown>,
+  advantageAudience: 0 | 1 | undefined,
+): Record<string, unknown> {
+  if (advantageAudience === undefined) return targeting;
+  const existing = targeting.targeting_automation;
+  const automation =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? (existing as Record<string, unknown>)
+      : {};
+  return {
+    ...targeting,
+    targeting_automation: { ...automation, advantage_audience: advantageAudience },
+  };
+}
+
 export function registerAdSetTools(server: McpServer): void {
   writeTool(
     server,
@@ -88,7 +120,9 @@ Notes:
 - 'billing_event' is what Meta charges you for: IMPRESSIONS is the safest default.
 - 'targeting' is Meta's raw JSON shape — pass at minimum { geo_locations: { countries: ['US'] } }. Use the 'build_targeting' tool to assemble it from human concepts.
 - Budget must be either at campaign level (CBO) or set here (one of daily_budget / lifetime_budget). When set here, also pass start_time and (for lifetime_budget) end_time.
-- bid_amount is REQUIRED for LOWEST_COST_WITH_BID_CAP and COST_CAP strategies.`,
+- bid_amount is REQUIRED for LOWEST_COST_WITH_BID_CAP and COST_CAP strategies.
+- Housing / Employment / Financial-products (special_ad_categories) ad sets with constrained targeting (custom audiences, detailed targeting) must set advantage_audience to 1 or 0 explicitly (v26+, all versions from 2026-10-27), or Meta returns ADS_TARGETING__REQUIRE_EXPLICIT_ADVANTAGE_AUDIENCE_FLAG.
+- Removed placements (v26): Instagram Explore feed ('explore' in instagram_positions) is rejected; Messenger Stories ('story' in messenger_positions) is dropped. Leave positions unset (Advantage+ placements) or omit those values.`,
     {
       account_id: z.string().describe("Ad account ID, with or without 'act_' prefix."),
       campaign_id: z.string().describe("Parent campaign ID."),
@@ -144,6 +178,12 @@ Notes:
         .describe(
           "Attribution windows. Defaults to ad-set-level Ads Manager-equivalent settings (1d_click + 7d_click).",
         ),
+      advantage_audience: z
+        .union([z.literal(0), z.literal(1)])
+        .optional()
+        .describe(
+          "Sets targeting.targeting_automation.advantage_audience (1 = Advantage+ audience on, 0 = off). Required explicitly for HEC/financial ad sets with constrained targeting since v26.",
+        ),
       is_adset_budget_sharing_enabled: z
         .boolean()
         .optional()
@@ -174,7 +214,7 @@ Notes:
           optimization_goal: args.optimization_goal,
           billing_event: args.billing_event,
           status: args.status,
-          targeting: args.targeting,
+          targeting: withAdvantageAudience(args.targeting, args.advantage_audience),
           ...(args.daily_budget !== undefined && { daily_budget: args.daily_budget }),
           ...(args.lifetime_budget !== undefined && {
             lifetime_budget: args.lifetime_budget,
@@ -206,7 +246,9 @@ Notes:
     "update_adset",
     `⚠️ WRITE OPERATION — Update fields on an existing ad set. Partial update.
 
-If you change daily_budget or lifetime_budget on a non-CBO ad set, Meta may require is_adset_budget_sharing_enabled to be re-asserted (v24+ — see create_adset). Pass it explicitly if the update fails with subcode 4834011.`,
+If you change daily_budget or lifetime_budget on a non-CBO ad set, Meta may require is_adset_budget_sharing_enabled to be re-asserted (v24+ — see create_adset). Pass it explicitly if the update fails with subcode 4834011.
+
+When replacing targeting, the same v26 rules as create_adset apply (explicit advantage_audience for HEC/financial ad sets; no Instagram Explore / Messenger Stories positions). advantage_audience is merged into the targeting you pass, so pass targeting along with it.`,
     {
       adset_id: z.string(),
       name: z.string().optional(),
@@ -218,6 +260,12 @@ If you change daily_budget or lifetime_budget on a non-CBO ad set, Meta may requ
       optimization_goal: OPTIMIZATION_GOAL.optional(),
       billing_event: BILLING_EVENT.optional(),
       targeting: z.record(z.string(), z.unknown()).optional(),
+      advantage_audience: z
+        .union([z.literal(0), z.literal(1)])
+        .optional()
+        .describe(
+          "Sets targeting.targeting_automation.advantage_audience. Requires `targeting` (Meta replaces the whole targeting spec).",
+        ),
       start_time: z.string().optional(),
       end_time: z.string().optional(),
       is_adset_budget_sharing_enabled: z
@@ -230,8 +278,22 @@ If you change daily_budget or lifetime_budget on a non-CBO ad set, Meta may requ
     },
     async (args) => {
       try {
-        const { adset_id, extra, ...rest } = args;
-        const body = stripUndefined({ ...rest, ...(extra ?? {}) });
+        const { adset_id, extra, advantage_audience, ...rest } = args;
+        if (advantage_audience !== undefined && !rest.targeting) {
+          return fail(
+            new MetaApiError({
+              message:
+                "advantage_audience needs `targeting` too: Meta replaces the whole targeting spec on update, so pass the full targeting object.",
+            }),
+          );
+        }
+        const body = stripUndefined({
+          ...rest,
+          ...(rest.targeting && {
+            targeting: withAdvantageAudience(rest.targeting, advantage_audience),
+          }),
+          ...(extra ?? {}),
+        });
         if (Object.keys(body).length === 0) {
           return fail(new MetaApiError({ message: "No fields to update." }));
         }

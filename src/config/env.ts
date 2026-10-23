@@ -6,7 +6,7 @@ const envSchema = z.object({
   /** Meta App ID. Optional for normal use; required for scripts/create-test-account.ts. */
   META_ADS_APP_ID: z.string().default(""),
   META_ADS_APP_SECRET: z.string().default(""),
-  META_GRAPH_API_VERSION: z.string().default("v25.0"),
+  META_GRAPH_API_VERSION: z.string().default("v26.0"),
   META_ADS_VALIDATE_AT_STARTUP: z.enum(["true", "false"]).default("false"),
   META_ADS_RATE_LIMIT_THRESHOLD: z.coerce.number().int().min(0).max(100).default(75),
   META_ADS_DEFAULT_PAGE_SIZE: z.coerce.number().int().min(1).max(100).default(25),
